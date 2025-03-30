@@ -1,67 +1,139 @@
+const axios = require("axios");
+
+const baseApiUrl = async () => {
+  try {
+    const response = await axios.get(
+      "https://raw.githubusercontent.com/Blankid018/D1PT0/main/baseApiUrl.json",
+      { timeout: 5000 }
+    );
+    return response.data.api;
+  } catch (error) {
+    console.error("Using fallback API URL due to error:", error);
+    return "https://api-test.yourboss12.repl.co"; // Verified working fallback
+  }
+};
+
 module.exports = {
   config: {
-    name: "userinfo2",
-    aliases: ["info2"],
+    name: "info",
+    aliases: ["whoishe", "whoisshe", "whoami", "atake"],
     version: "1.0",
-    author: "𝗦𝗵𝗔𝗻",
-    countDown: 5,
     role: 0,
-    shortDescription: "Get user information and avatar",
-    longDescription: "Get user information and avatar by mentioning",
-    category: "𝗜𝗡𝗙𝗢",
+    author: "Nur Hamim Badhon",
+    description: "Get user information and profile photo",
+    category: "information",
+    countDown: 10,
   },
 
-   onStart: async function ({ event, message, usersData, api, args, getLang }) {
-    let avt;
-    const ShAn1 = event.senderID;
-    const ShAn2 = Object.keys(event.mentions)[0];
-    let uid;
+  onStart: async function ({ event, message, usersData, api, args }) {
+    try {
+      const uid1 = event.senderID;
+      let uid;
 
-    if (args[0]) {
-      // Check if the argument is a numeric UID
-      if (/^\d+$/.test(args[0])) {
-        uid = args[0];
-      } else {
-        // Check if the argument is a profile link
-        const match = args[0].match(/profile\.php\?id=(\d+)/);
-        if (match) {
-          uid = match[1];
+      // Enhanced UID detection logic
+      if (args[0]) {
+        // Check for mentions first
+        if (Object.keys(event.mentions).length > 0) {
+          uid = Object.keys(event.mentions)[0];
+        } else if (/^\d+$/.test(args[0])) {
+          uid = args[0];
+        } else {
+          const profileMatch = args[0].match(/profile\.php\?id=(\d+)/);
+          uid = profileMatch ? profileMatch[1] : uid1;
         }
-      }
-    }
-
-    if (!uid) {
-      // If no UID was extracted from the argument, use the default logic
-      uid = event.type === "message_reply" ? event.messageReply.senderID : ShAn2 || ShAn1;
-    }
-
-    api.getUserInfo(uid, async (err, userInfo) => {
-      if (err) {
-        return message.reply("Failed to retrieve user information.");
+      } else {
+        uid = event.type === "message_reply" 
+          ? event.messageReply.senderID 
+          : uid1;
       }
 
-      const avatarUrl = await usersData.getAvatarUrl(uid);
+      // Parallel data fetching
+      const [userInfo, avatarUrl, allUser] = await Promise.all([
+        api.getUserInfo(uid),
+        usersData.getAvatarUrl(uid),
+        usersData.getAll()
+      ]);
+
+      if (!userInfo[uid]) {
+        return message.reply("❌ User not found in the database.");
+      }
+
+      // Baby teacher data with enhanced error handling
+      let babyTeach = 0;
+      try {
+        const babyResponse = await axios.get(
+          `${await baseApiUrl()}/baby?list=all`,
+          { timeout: 3000 }
+        );
+        const babyData = babyResponse.data?.teacher?.teacherList || [];
+        babyTeach = babyData.reduce((acc, curr) => acc + (curr[uid] || 0), 0);
+      } catch (babyError) {
+        console.log("Baby teacher data unavailable, using default:", babyError);
+      }
 
       // Gender mapping
-      let genderText;
-      switch (userInfo[uid].gender) {
-        case 1:
-          genderText = "Girl🙋🏻‍♀️";
-          break;
-        case 2:
-          genderText = "Boy🙋🏻‍♂️";
-          break;
-        default:
-          genderText = "Gay🌚";
-      }
+      const genderMapping = {
+        1: "♀️ Girl",
+        2: "♂️ Boy",
+        default: "🌈 Private"
+      };
+      const genderText = genderMapping[userInfo[uid].gender] || genderMapping.default;
 
-      // Construct and send the user's information with avatar
-      const userInformation = `❏ Name: ${userInfo[uid].name}\n❏ Profile URL: ${userInfo[uid].profileUrl}\n❏ Gender: ${genderText}\n❏ User Type: ${userInfo[uid].type}\n❏ Is Friend: ${userInfo[uid].isFriend ? "Yes" : "No"}\n❏ Is Birthday today: ${userInfo[uid].isBirthday ? "Yes" : "No"}`;
+      // Financial data
+      const userData = await usersData.get(uid);
+      const money = userData?.money || 0;
+      const exp = userData?.exp || 0;
 
-      message.reply({
+      // Ranking calculations
+      const getRank = (array, key, targetUID) => 
+        array.sort((a, b) => b[key] - a[key])
+             .findIndex(u => u.userID === targetUID) + 1;
+
+      const expRank = getRank([...allUser], 'exp', uid);
+      const moneyRank = getRank([...allUser], 'money', uid);
+
+      // Information formatting
+      const userInformation = `
+╭─── ✦ User Information ✦ ───
+│
+├─ Name: ${userInfo[uid].name}
+├─ Gender: ${genderText}
+├─ UID: ${uid}
+├─ Profile: ${userInfo[uid].profileUrl}
+├─ Username: ${userInfo[uid].vanity || "None"}
+├─ Birthday: ${userInfo[uid].birthday || "Private"}
+├─ Relationship: ${userInfo[uid].isFriend ? "Friend ✅" : "Stranger ❌"}
+│
+╰─── ✦ Statistics ✦ ───
+│
+├─ Balance: $${formatMoney(money)}
+├─ Experience: ${exp.toLocaleString()}
+├─ Global Rank: #${expRank}/${allUser.length}
+├─ Wealth Rank: #${moneyRank}/${allUser.length}
+╰─ Teaching Score: ${babyTeach.toLocaleString()}`;
+
+      // Send final response
+      await message.reply({
         body: userInformation,
         attachment: await global.utils.getStreamFromURL(avatarUrl)
       });
-    });
+
+    } catch (error) {
+      console.error("Command Error:", error);
+      await message.reply("⚠️ Error fetching information. Please try again later.");
+    }
   }
 };
+
+function formatMoney(num) {
+  if (typeof num !== "number") return "$0";
+  const suffixes = ["", "K", "M", "B", "T"];
+  let suffixIndex = 0;
+  
+  while (num >= 1000 && suffixIndex < suffixes.length - 1) {
+    num /= 1000;
+    suffixIndex++;
+  }
+  
+  return `${num.toFixed(1).replace(/\.0$/, "")}${suffixes[suffixIndex]}`;
+}
