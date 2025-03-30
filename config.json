@@ -12,16 +12,16 @@
 	"antiInbox": false,
 	"language": "en",
 	"notesLanguage": "change to your language with ISO 639-1 code, available languages: vi (Vietnamese), en (English)",
-	"nickNameBot": "❀ėฬ𝔯 𝖋á𝒊ⲍ𐍈❀",
-	"prefix": "(",
+	"nickNameBot": "VIXA❀",
+	"prefix": "/",
 	"adminOnly": {
 		"enable": false,
 		"ignoreCommand": []
 	},
-	"adminBot": ["100045644423035", "61573492023196"],
+	"adminBot": ["100034630383353"],
 	"whiteListMode": {
 		"enable": false,
-		"whiteListIds": ["100045644423035", "61573492023196", "61569536021532"],
+		"whiteListIds": ["100034630383353", "61573492023196", "61569536021532"],
 		"notes": "if you enable this feature, only the ids in the whiteListIds list can use the bot"
 	},
 	"whiteListModeThread": {
@@ -43,7 +43,7 @@
 			"email": "sirana5097@gmail.com",
 			"clientId": "255361029474-23gsoq2mk3917srj7teaot6o3jklkag0.apps.googleusercontent.com",
 			"clientSecret": "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",
-			"refreshToken": "1//04hnUppeIAGRLCgYIARAAGAQSNwF-L9IrTeHuQUXglMSk0pFY-SMsxyvtw3pK1rUryqh8K1g395j1Qe2uPt1D1MDNqaf2x9M7Grk",
+			"refreshToken": "1//04O6kUtOm2wNwCgYIARAAGAQSNwF-L9IrHXORnT_e2whzec4yI03M0hJjrAlkxERTas_i_QfHGPql5u3yumOXHv6keVjPcVAmzII",
 			"apiKey": ""
 		},
 		"gRecaptcha": {
@@ -95,7 +95,7 @@
 		"notes": "This is the message when the bot is listening to the mqtt server and the mqtt server stops working due to account problems such as: locked acc, blocked due to spam,... bot will automatically send notifications to parts of your settings. You must change enable to true to use this feature. See bot/login/handlerWhenListenHasError.js file for details on how it works",
 		"gmail": {
 			"enable": true,
-			"emailGetNoti": "sirana5097@gmail.com",
+			"emailGetNoti": "ibadhon151@gmail.com",
 			"note": "Bot will use gmailAccount to send email to emailGetNoti, can send notifications to many email, separate by comma or space, example: \"example1@gmail.com example2@gmail.com\" (without backslash)"
 		},
 		"telegram": {

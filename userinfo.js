@@ -12,7 +12,7 @@ module.exports = {
     aliases: ["whoishe", "whoisshe", "whoami", "atake"],
     version: "1.0",
     role: 0,
-    author: "ShAn",
+    author: "Nur Hamim Badhon",
     Description: "Get user information and profile photo",
     category: "information",
     countDown: 10,
