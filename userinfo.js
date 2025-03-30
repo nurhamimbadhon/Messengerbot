@@ -1,9 +1,13 @@
 const axios = require("axios");
+
 const baseApiUrl = async () => {
-  const base = await axios.get(
-    `https://raw.githubusercontent.com/Blankid018/D1PT0/main/baseApiUrl.json`,
-  );
-  return base.data.api;
+  try {
+    const response = await axios.get(`https://raw.githubusercontent.com/Blankid018/D1PT0/main/baseApiUrl.json`);
+    return response.data.api;
+  } catch (error) {
+    console.error("Failed to fetch base API URL:", error);
+    return "https://default-api-url.com"; // Add a fallback URL
+  }
 };
 
 module.exports = {
@@ -13,98 +17,110 @@ module.exports = {
     version: "1.0",
     role: 0,
     author: "Nur Hamim Badhon",
-    Description: "Get user information and profile photo",
+    description: "Get user information and profile photo",
     category: "information",
     countDown: 10,
   },
 
-  onStart: async function ({
-    event,
-    message,
-    usersData,
-    api,
-    args,
-  }) {
-    const uid1 = event.senderID;
+  onStart: async function ({ event, message, usersData, api, args }) {
+    try {
+      const uid1 = event.senderID;
+      let uid;
 
-    const uid2 = Object.keys(event.mentions)[0];
-    let uid;
-
-    if (args[0]) {
-      if (/^\d+$/.test(args[0])) {
-        uid = args[0];
-      } else {
-        const match = args[0].match(/profile\.php\?id=(\d+)/);
-        if (match) {
-          uid = match[1];
+      // Handle different ways of specifying UID
+      if (args[0]) {
+        // Check if mention exists
+        if (event.mentions && Object.keys(event.mentions).length > 0) {
+          uid = Object.keys(event.mentions)[0];
         }
+        // Check if numeric UID
+        else if (/^\d+$/.test(args[0])) {
+          uid = args[0];
+        }
+        // Check profile URL format
+        else {
+          const match = args[0].match(/profile\.php\?id=(\d+)/);
+          uid = match ? match[1] : uid1;
+        }
+      } else {
+        uid = uid1;
       }
-    }
 
-    if (!uid) {
-      uid =
-        event.type === "message_reply"
-          ? event.messageReply.senderID
-          : uid2 || uid1;
-    }
-    const response = await require("axios").get(
-      `${await baseApiUrl()}/baby?list=all`
-    );
-    const dataa = response.data || { teacher: { teacherList: [] } };
-    let babyTeach = 0;
+      // Fetch additional data
+      const [userInfo, avatarUrl, allUser] = await Promise.all([
+        api.getUserInfo(uid),
+        usersData.getAvatarUrl(uid),
+        usersData.getAll()
+      ]);
 
-    if (dataa?.teacher?.teacherList?.length) {
-      babyTeach = dataa.teacher.teacherList.find((t) => t[uid])?.[uid] || 0;
-    }
+      // Handle user info not found
+      if (!userInfo[uid]) {
+        return message.reply("User not found.");
+      }
 
-    const userInfo = await api.getUserInfo(uid);
-    const avatarUrl = await usersData.getAvatarUrl(uid);
+      // Fetch baby teacher data
+      const babyResponse = await axios.get(`${await baseApiUrl()}/baby?list=all`);
+      const babyData = babyResponse.data?.teacher?.teacherList || [];
+      const babyTeach = babyData.find(t => t[uid])?.[uid] || 0;
 
-    let genderText;
-    switch (userInfo[uid].gender) {
-      case 1:
-        genderText = "𝙶𝚒𝚛𝚕🙋🏻‍♀️";
-        break;
-      case 2:
-        genderText = "Boy🙋🏻‍♂️";
-        break;
-      default:
-        genderText = "𝙶𝚊𝚢🤷🏻‍♂️";
-    }
+      // Process gender information
+      const genderMap = {
+        1: "𝙶𝚒𝚛𝚋🙋🏻‍♀️",
+        2: "Boy🙋🏻‍♂️",
+        default: "𝙶𝚊𝚢🤷🏻‍♂️"
+      };
+      const genderText = genderMap[userInfo[uid].gender] || genderMap.default;
 
-    const money = (await usersData.get(uid)).money;
-    const allUser = await usersData.getAll(), rank = allUser.slice().sort((a, b) => b.exp - a.exp).findIndex(user => user.userID === uid) + 1, moneyRank = allUser.slice().sort((a, b) => b.money - a.money).findIndex(user => user.userID === uid) + 1;
+      // Get financial information
+      const userData = await usersData.get(uid);
+      const money = userData.money || 0;
 
-    const position = userInfo[uid].type;
+      // Calculate ranks
+      const sortedExp = [...allUser].sort((a, b) => b.exp - a.exp);
+      const expRank = sortedExp.findIndex(u => u.userID === uid) + 1;
 
-    const userInformation = `
+      const sortedMoney = [...allUser].sort((a, b) => b.money - a.money);
+      const moneyRank = sortedMoney.findIndex(u => u.userID === uid) + 1;
+
+      // Construct information message
+      const userInformation = `
 ╭────[ 𝐔𝐒𝐄𝐑 𝐈𝐍𝐅𝐎 ]
-├‣ 𝙽𝚊𝚖𝚎: ${userInfo[uid].name}
-├‣ 𝙶𝚎𝚗𝚍𝚎𝚛: ${genderText}
-├‣ 𝚄𝙸𝙳: ${uid}
-├‣ 𝙲𝚕𝚊𝚜𝚜: ${position ? position?.toUpperCase() : "𝙽𝚘𝚛𝚖𝚊𝚕 𝚄𝚜𝚎𝚛🥺"}
-├‣ 𝚄𝚜𝚎𝚛𝚗𝚊𝚖𝚎: ${userInfo[uid].vanity ? userInfo[uid].vanity : "𝙽𝚘𝚗𝚎"}
+├‣ �𝙽𝚊𝚖𝚎: ${userInfo[uid].name}
+├‣ �𝙶𝚎𝚗𝚍𝚎𝚛: ${genderText}
+├‣ 𝙄𝙳: ${uid}
+├‣ 𝙲𝚕𝚊𝚜𝚜: ${userInfo[uid].type?.toUpperCase() || "𝙽𝚘𝚛𝚖𝚊𝚕 𝚄𝚜𝚎𝚛🥺"}
+├‣ 𝚄𝚜𝚎𝚛𝚗𝚊𝚖𝚎: ${userInfo[uid].vanity || "𝙽𝚘𝚗𝚎"}
 ├‣ 𝙿𝚛𝚘𝚏𝚒𝚕𝚎 𝚄𝚁𝙻: ${userInfo[uid].profileUrl}
-├‣ 𝙱𝚒𝚛𝚝𝚑𝚍𝚊𝚢: ${userInfo[uid].isBirthday !== false ? userInfo[uid].isBirthday : "𝙿𝚛𝚒𝚟𝚊𝚝𝚎"}
+├‣ 𝙱𝚒𝚛𝚝𝚑𝚍𝚊𝚢: ${userInfo[uid].birthday || "𝙿𝚛𝚒𝚟𝚊𝚝𝚎"}
 ├‣ 𝙽𝚒𝚌𝚔𝙽𝚊𝚖𝚎: ${userInfo[uid].alternateName || "𝙽𝚘𝚗𝚎"}
 ╰‣ 𝙵𝚛𝚒𝚎𝚗𝚍 𝚠𝚒𝚝𝚑 𝚋𝚘𝚝: ${userInfo[uid].isFriend ? "𝚈𝚎𝚜✅" : "𝙽𝚘❎"}
 
 ╭─────[ 𝐔𝐒𝐄𝐑 𝐒𝐓𝐀𝐓𝐒 ]
 ├‣ 𝙼𝚘𝚗𝚎𝚢: $${formatMoney(money)}
-├‣ 𝚁𝚊𝚗𝚔: #${rank}/${allUser.length}
+├‣ 𝚁𝚊𝚗𝚔: #${expRank}/${allUser.length}
 ├‣ 𝙼𝚘𝚗𝚎𝚢 𝚁𝚊𝚗𝚔: #${moneyRank}/${allUser.length}
-╰‣ 𝙱𝚊𝚋𝚢 𝚝𝚎𝚊𝚌𝚑: ${babyTeach || 0}`;
+╰‣ 𝙱𝚊𝚋𝚢 𝚝𝚎𝚊𝚌𝚑: ${babyTeach}`;
 
-    message.reply({
-      body: userInformation,
-      attachment: await global.utils.getStreamFromURL(avatarUrl),
-    });
-  },
+      // Send response with avatar
+      message.reply({
+        body: userInformation,
+        attachment: await global.utils.getStreamFromURL(avatarUrl)
+      });
+
+    } catch (error) {
+      console.error("Error in info command:", error);
+      message.reply("An error occurred while fetching user information.");
+    }
+  }
 };
 
 function formatMoney(num) {
-  const units = ["", "K", "M", "B", "T", "Q", "Qi", "Sx", "Sp", "Oc", "N", "D"];
+  if (typeof num !== "number") return "$0";
+  const units = ["", "K", "M", "B", "T"];
   let unit = 0;
-  while (num >= 1000 && ++unit < units.length) num /= 1000;
+  while (num >= 1000 && unit < units.length - 1) {
+    num /= 1000;
+    unit++;
+  }
   return num.toFixed(1).replace(/\.0$/, "") + units[unit];
-        }
+}
