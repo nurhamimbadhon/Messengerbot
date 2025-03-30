@@ -24,23 +24,22 @@ module.exports = {
 			};
 
 			const response = `
-♕︎ 𝗢𝗪𝗡𝗘𝗥 𝗜𝗡𝗙𝗢𝗥𝗠𝗔𝗧𝗜𝗢𝗡 ♕︎
+🔥 𝗢𝗪𝗡𝗘𝗥 𝗜𝗡𝗙𝗢𝗥𝗠𝗔𝗧𝗜𝗢𝗡..!
 
 ❖ 𝗡𝗔𝗠𝗘 ➪ ${shaninfo.name}
 ❖ 𝗔𝗚𝗘 ➪ ${shaninfo.age}
 ❖ 𝗗𝗔𝗧𝗘 𝗢𝗙 𝗕𝗜𝗥𝗧𝗛 ➪ ${shaninfo.birthday}
 ❖ 𝗙𝗔𝗖𝗘𝗕𝗢𝗢𝗞 ➪ ${shaninfo.facebook}
-❖ 𝗜𝗡 ➪ ${shaninfo.instagram}
+❖ 𝗜𝗡𝗦𝗧𝗔𝗚𝗥𝗔𝗠 ➪ ${shaninfo.instagram}
 ❖ 𝗥𝗘𝗟𝗜𝗚𝗜𝗢𝗡 ➪ ${shaninfo.religion}
 
-✦ ＣＯＮＴＡＣＴ ＭＥ ＦＯＲ ＡＮＹ ＱＵＥＲＹ ✦
-			`;
+✦ `;
 
 			await api.sendMessage({
 				body: response
 			}, event.threadID, event.messageID);
 
-			api.setMessageReaction('😇', event.messageID, (err) => {}, true);
+			api.setMessageReaction('💖', event.messageID, (err) => {}, true);
 		} catch (error) {
 			console.error('Error in owner command:', error);
 			return api.sendMessage('An error occurred while processing the command.', event.threadID);
