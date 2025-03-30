@@ -5,20 +5,18 @@ module.exports = {
     version: "1.0",
     author: "AceGun",
     countDown: 5,
-    role: 2,
-    shortDescription: "Send girl photos",
-    longDescription: "Sends multiple sexy girl pictures",
-    category: "18+",
+    role: 0, // Changed to 0 for all users
+    shortDescription: "Send photos",
+    longDescription: "Sends multiple pictures",
+    category: "media",
     guide: "{pn}"
   },
 
   onStart: async function ({ api, event }) {
     try {
       api.setMessageReaction("⏳", event.messageID, (err) => {}, true);
-      
-      const allImages = [
-        "https://i.postimg.cc/wTJNSC1G/E-B9ea-WQAAst-Yg.jpg",
-       
+	 const allImages = [
+"https://i.postimg.cc/wTJNSC1G/E-B9ea-WQAAst-Yg.jpg",
 "https://i.postimg.cc/sgrWyTSD/E-B9eb-AWUAINyt-B.jpg",
 "https://i.postimg.cc/TYcj48LJ/E02i-P-q-XIAE62tu.jpg",
 "https://i.postimg.cc/MpK0ks12/E02i-P-w-WYAEbvgg.jpg",
@@ -365,24 +363,42 @@ module.exports = {
 "https://i.postimg.cc/bN7JkgRc/E9e-G1-T9-UYAc-FM5-G.jpg",
 "https://i.postimg.cc/L40h62Ys/E9e-PZ-YUYAMt-ZAK.jpg",
 "https://i.postimg.cc/13DzHFWg/E9e-PZ-ZVIAU-qpm.jpg",
-"https://i.postimg.cc/d0BVMY "https://i.postimg.cc/vBV2gQ8d/E4u-GXl-Y" // Last image URL from your list
+"https://i.postimg.cc/d0BVMYcw/E9g7q-TCVc-Ag53h2.jpg",
+"https://i.postimg.cc/tJ1qVnZ4/E9-H4-Tff-VEAAj-D0w.jpg",
+"https://i.postimg.cc/QCRXgN1k/E9-H4-Tfg-VEAk-WZjm.jpg",
+"https://i.postimg.cc/YSkCySVd/E9i-Ix9l-Vo-Ac-N0-Al.jpg",
+"https://i.postimg.cc/NMjfBzQT/E9ml-GAk-VUAMCun-X.jpg",
+"https://i.postimg.cc/k4YM4v5H/E9ml-GAo-VEAAk-Aq.jpg",
+"https://i.postimg.cc/L476FDwY/E9ro-PZIUUAIc-Kaz.jpg",
+"https://i.postimg.cc/TYD2dmvk/E9ro-PZJVo-AQh5j-Y.jpg",
+"https://i.postimg.cc/9QHmrMWc/E9ro-PZKVk-AE5754.jpg",
+"https://i.postimg.cc/5txfSRYG/E9ro-PZz-VIAIWh-Xb.jpg",
+"https://i.postimg.cc/7Z1x7k60/E9z-UZTPVc-AIbh-T1.jpg",
+"https://i.postimg.cc/bJr8KSR9/E9z-UZTPVIAMto-E0.jpg",
+"https://i.postimg.cc/1zJsCrDz/E9z-UZTSVIAAVW26.jpg",
+"https://i.postimg.cc/RFY99Cs5/E9z-UZTSVQAUPh-Yi.jpg",
+"https://i.postimg.cc/YqMkHP8S/EK9-Aa1-KUEAERluy.jpg",
+"https://i.postimg.cc/BZxsR3Ty/EK9-Aazd-U4-AAn-RWe.jpg",
+"https://i.postimg.cc/dV0Y7TbP/EK9-Aazj-VUAE0-GQ.jpg",
+"https://i.postimg.cc/9Q06XH9c/f-b-Mpjec-FRr-M-3-W.jpg",
+"https://i.postimg.cc/NFQnW3Yq/fxw-Wt-XHtl-Tr-Fh-Qyw.jpg",
+"https://i.postimg.cc/D05NFxyW/hbay-UWXCIHAJYx-WR.jpg",
+"https://i.postimg.cc/2StPV9dh/HQlt7u-z-AJJFo-e.jpg",
+"https://i.postimg.cc/9MdSgW6Y/ht-D3-Wi-JQM0md-Fc-Ig.jpg",
+"https://i.postimg.cc/L6CWbQbw/q1o-DN4-IN-Zd6-K5s7.jpg",
+"https://i.postimg.cc/1th2Kgjz/Vbn0-ZPWBu-CB05-j-J.jpg",
+"https://i.postimg.cc/J7Qvbzc1/zpbi-Yu-P1-WBTUrc.jpg",
       ];
+      const selectedImages = allImages
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 6);
 
-      // Select 6 random images from the list
-      const selectedImages = [];
-      while (selectedImages.length < 6 && allImages.length > 0) {
-        const randomIndex = Math.floor(Math.random() * allImages.length);
-        selectedImages.push(allImages[randomIndex]);
-        allImages.splice(randomIndex, 1);
-      }
-
-      // Send the images
-      const attachments = await Promise.all(selectedImages.map(url => 
-        global.utils.getStreamFromURL(url)
-      ));
+      const attachments = await Promise.all(
+        selectedImages.map(url => global.utils.getStreamFromURL(url))
+      );
 
       api.sendMessage({
-        body: "Here are some sexy pics for you 💋",
+        body: "Here are some pics for you 🌸",
         attachment: attachments
       }, event.threadID, event.messageID);
 
