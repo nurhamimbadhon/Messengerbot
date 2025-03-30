@@ -1,6 +1,6 @@
 module.exports = {
   config: {
-    name: "pic",
+    name: "girl",
     aliases: ["pic"],
     version: "1.0",
     author: "AceGun",
