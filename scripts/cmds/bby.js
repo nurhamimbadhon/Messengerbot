@@ -11,7 +11,7 @@ const sendMessage = (api, threadID, message, messageID) =>
   api.sendMessage(message, threadID, messageID);
 
 const cError = (api, threadID, messageID) =>
-  sendMessage(api, threadID, "error🦆💨", messageID);
+  sendMessage(api, threadID, "error💨", messageID);
 
 const teachBot = async (api, threadID, messageID, senderID, teachText) => {
   const [ask, answers] = teachText.split(" - ").map(text => text.trim());
