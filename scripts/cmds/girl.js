@@ -6,7 +6,7 @@ module.exports = {
     author: "AceGun",
     countDown: 5,
     role: 2,
-    shortDescription: "send you girl photos",
+    shortDescription: "Send girl photos",
     longDescription: "Sends multiple sexy girl pictures",
     category: "18+",
     guide: "{pn}"
@@ -18,6 +18,7 @@ module.exports = {
       
       const allImages = [
         "https://i.postimg.cc/wTJNSC1G/E-B9ea-WQAAst-Yg.jpg",
+       
 "https://i.postimg.cc/sgrWyTSD/E-B9eb-AWUAINyt-B.jpg",
 "https://i.postimg.cc/TYcj48LJ/E02i-P-q-XIAE62tu.jpg",
 "https://i.postimg.cc/MpK0ks12/E02i-P-w-WYAEbvgg.jpg",
@@ -339,40 +340,56 @@ module.exports = {
 "https://i.postimg.cc/j5D2yFBT/E72-BU-w-UUAIs-A-R.jpg",
 "https://i.postimg.cc/rytzm7SC/E82-Of-JXUc-AEGPNr.jpg",
 "https://i.postimg.cc/J4V0BKxw/E82-Of-JZVg-AI1rf6.jpg",
-"https://i.postimg.cc/JnXmrV9s/E8
-        "https://i.postimg.cc/J0zTT1rv/w8h4-Ww2-Cp1-Nf-X-V.jpg"
+"https://i.postimg.cc/JnXmrV9s/E865-Drh-VEA4-Hy4-L.jpg",
+"https://i.postimg.cc/fTp35DDP/E8bg-Cq-FVUA0meb5.jpg",
+"https://i.postimg.cc/cC5vpNYr/E8-Gvuvt-Vc-AMBiv-A.jpg",
+"https://i.postimg.cc/6qQ7bQ8k/E8-Gvuv-ZUc-A8v-do.jpg",
+"https://i.postimg.cc/Dy8Jq8ks/E8-Gvuv-ZVk-Ac7j5-N.jpg",
+"https://i.postimg.cc/Cx8RQXKx/E8-Gvuv-ZVo-AQB8bc.jpg",
+"https://i.postimg.cc/Y2XLGQVM/E8-Lrtu-HUUAIBusl.jpg",
+"https://i.postimg.cc/8CV7Q4FB/E8mrcng-VEAMk-Y-2.jpg",
+"https://i.postimg.cc/B6SttvBj/E8-MVVk-PVc-AEt-IFz.jpg",
+"https://i.postimg.cc/85ZcvVZt/E8r-Rk6w-VUAArw9-D.jpg",
+"https://i.postimg.cc/7YGh5d0n/E8-Wf-Zp6-Vc-AIJBI.jpg",
+"https://i.postimg.cc/B6pLCFn5/E8-4tch-XIAQFLRx.jpg",
+"https://i.postimg.cc/LsBnHPLd/E8-4t-Zo-WYAYLBhh.jpg",
+"https://i.postimg.cc/Hswx05vr/E91-f-B3-Vc-AQHy-Sc.jpg",
+"https://i.postimg.cc/T3TPtwBC/E91-f-B9-VQAQnua5.jpg",
+"https://i.postimg.cc/Dw5wHhTF/E91-f-Ep-Vk-AEZVU.jpg",
+"https://i.postimg.cc/cJHLNzx3/E91-f-Er-VUAIqp-O.jpg",
+"https://i.postimg.cc/kGxnc3c0/E99pfbs-Vg-AQd5kt.jpg",
+"https://i.postimg.cc/mgdTVSYg/E99pfbs-Vk-AU17x2.jpg",
+"https://i.postimg.cc/RCfV9KBg/E99pfbt-Vg-AMK5g.jpg",
+"https://i.postimg.cc/tJ7Ttmfy/E9bx-KMa-Uc-AAe6r-F.jpg",
+"https://i.postimg.cc/hvwGC1Wm/E9e-G1-T8-Vg-AIwj-AA.jpg",
+"https://i.postimg.cc/bN7JkgRc/E9e-G1-T9-UYAc-FM5-G.jpg",
+"https://i.postimg.cc/L40h62Ys/E9e-PZ-YUYAMt-ZAK.jpg",
+"https://i.postimg.cc/13DzHFWg/E9e-PZ-ZVIAU-qpm.jpg",
+"https://i.postimg.cc/d0BVMY "https://i.postimg.cc/vBV2gQ8d/E4u-GXl-Y" // Last image URL from your list
       ];
 
-      // Split images into chunks of 10 to avoid API limits
-      const chunkSize = 10;
-      for (let i = 0; i < allImages.length; i += chunkSize) {
-        const chunk = allImages.slice(i, i + chunkSize);
-        const attachments = [];
-        
-        for (const url of chunk) {
-          try {
-            const stream = await global.utils.getStreamFromURL(url);
-            attachments.push(stream);
-          } catch (error) {
-            console.error(`Error fetching image ${url}:`, error);
-          }
-        }
-
-        if (attachments.length > 0) {
-          await api.sendMessage({
-            body: i === 0 ? "Here are all the pictures:" : "Continuing with more pictures...",
-            attachment: attachments
-          }, event.threadID);
-        }
-        
-        // Small delay between batches to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      // Select 6 random images from the list
+      const selectedImages = [];
+      while (selectedImages.length < 6 && allImages.length > 0) {
+        const randomIndex = Math.floor(Math.random() * allImages.length);
+        selectedImages.push(allImages[randomIndex]);
+        allImages.splice(randomIndex, 1);
       }
+
+      // Send the images
+      const attachments = await Promise.all(selectedImages.map(url => 
+        global.utils.getStreamFromURL(url)
+      ));
+
+      api.sendMessage({
+        body: "Here are some sexy pics for you 💋",
+        attachment: attachments
+      }, event.threadID, event.messageID);
 
       api.setMessageReaction("✅", event.messageID, (err) => {}, true);
     } catch (error) {
-      console.error("Error in pic command:", error);
-      api.sendMessage("An error occurred while sending the pictures.", event.threadID);
+      console.error(error);
+      api.sendMessage("An error occurred while sending images.", event.threadID, event.messageID);
       api.setMessageReaction("❌", event.messageID, (err) => {}, true);
     }
   }
