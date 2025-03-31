@@ -1,7 +1,5 @@
 const axios = require("axios");
 
-let autoDownloadStatus = {}; // Stores auto-download status per thread
-
 const dApi = async () => {
   const base = await axios.get(
     "https://raw.githubusercontent.com/nazrul4x/Noobs/main/Apis.json"
@@ -10,117 +8,102 @@ const dApi = async () => {
 };
 
 module.exports.config = {
-  name: "autodl",
-  version: "2.0.0",
-  author: "Nur hamim",
+  name: "download",
+  version: "1.6.9",
+  author: "Nazrul",
   role: 0,
-  description: "Auto-download videos with toggle functionality",
+  description: "Automatically download videos from supported platforms!",
   category: "𝗠𝗘𝗗𝗜𝗔",
-  countDown: 5,
+  countDown: 10,
   guide: {
-    en: "{pn} [aon|aoff] or /dn [link]"
-  }
+    en: "Send a valid video link from supported platforms (TikTok, Facebook, YouTube, Twitter, Instagram, etc.), and the bot will download it automatically.",
+  },
 };
+module.exports.onStart = ({}) => {};
 
 const platforms = {
   TikTok: {
     regex: /(?:https?:\/\/)?(?:www\.)?tiktok\.com/,
-    endpoint: "/nazrul/tikDL?url="
+    endpoint: "/nazrul/tikDL?url=",
   },
   Facebook: {
     regex: /(?:https?:\/\/)?(?:www\.)?(facebook\.com|fb\.watch|facebook\.com\/share\/v)/,
-    endpoint: "/nazrul/fbDL?url="
+    endpoint: "/nazrul/fbDL?url=",
   },
   YouTube: {
     regex: /(?:https?:\/\/)?(?:www\.)?(youtube\.com|youtu\.be)/,
-    endpoint: "/nazrul/ytDL?uri="
+    endpoint: "/nazrul/ytDL?uri=",
   },
   Twitter: {
-    regex: /(?:https?:\/\/)?(?:www\.)?(x\.com|twitter\.com)/,
-    endpoint: "/nazrul/alldl?url="
+    regex: /(?:https?:\/\/)?(?:www\.)?x\.com/,
+    endpoint: "/nazrul/alldl?url=",
   },
   Instagram: {
     regex: /(?:https?:\/\/)?(?:www\.)?instagram\.com/,
-    endpoint: "/nazrul/instaDL?url="
-  }
+    endpoint: "/nazrul/instaDL?url=",
+  },
 };
 
 const detectPlatform = (url) => {
   for (const [platform, data] of Object.entries(platforms)) {
-    if (data.regex.test(url)) return { platform, endpoint: data.endpoint };
+    if (data.regex.test(url)) {
+      return { platform, endpoint: data.endpoint };
+    }
   }
   return null;
 };
 
 const downloadVideo = async (apiUrl, url) => {
   const match = detectPlatform(url);
-  if (!match) throw new Error("Unsupported platform");
+  if (!match) {
+    throw new Error("No matching platform for the provided URL.");
+  }
 
   const { platform, endpoint } = match;
   const endpointUrl = `${apiUrl}${endpoint}${encodeURIComponent(url)}`;
-  
+  console.log(`🔗 Fetching from: ${endpointUrl}`);
+
   try {
     const res = await axios.get(endpointUrl);
-    return {
-      downloadUrl: res.data?.videos?.[0]?.url || res.data?.url,
-      platform
-    };
+    console.log(`✅ API Response:`, res.data);
+
+    const videoUrl = res.data?.videos?.[0]?.url || res.data?.url;
+    if (videoUrl) {
+      return { downloadUrl: videoUrl, platform };
+    }
   } catch (error) {
-    throw new Error(`API Error: ${error.message}`);
+    console.error(`❌ Error fetching data from ${endpointUrl}:`, error.message);
+    throw new Error("Download link not found.");
   }
+  throw new Error("No video URL found in the API response.");
 };
-
-async function processDownload(url, api, event, messageIDToEdit) {
-  try {
-    const apiUrl = await dApi();
-    await api.setMessageReaction("⏳", event.messageID, () => {}, true);
-    
-    const { downloadUrl, platform } = await downloadVideo(apiUrl, url);
-    const videoStream = await axios.get(downloadUrl, { responseType: "stream" });
-
-    await api.sendMessage({
-      body: `✅ Successfully downloaded from ${platform}`,
-      attachment: videoStream.data
-    }, event.threadID, messageIDToEdit);
-    
-    await api.setMessageReaction("✅", event.messageID, () => {}, true);
-  } catch (error) {
-    await api.sendMessage(`❌ Error: ${error.message}`, event.threadID, messageIDToEdit);
-    await api.setMessageReaction("❌", event.messageID, () => {}, true);
-  }
-}
-
-module.exports.onStart = function({}) {};
 
 module.exports.onChat = async ({ api, event }) => {
   const { body, threadID, messageID } = event;
+
   if (!body) return;
 
-  // Command handling
-  if (body.toLowerCase().startsWith('/aon')) {
-    autoDownloadStatus[threadID] = true;
-    return api.sendMessage("🟢 Auto-Download Mode ACTIVATED\nNow I'll automatically download any supported links!", threadID, messageID);
-  }
-  
-  if (body.toLowerCase().startsWith('/aoff')) {
-    autoDownloadStatus[threadID] = false;
-    return api.sendMessage("🔴 Auto-Download Mode DEACTIVATED\nUse '/dn [link]' to download manually.", threadID, messageID);
-  }
-  
-  if (body.toLowerCase().startsWith('/dn')) {
-    const urlMatch = body.match(/https?:\/\/[^\s]+/);
-    if (!urlMatch) return api.sendMessage("⚠️ Please provide a valid URL after /dn", threadID, messageID);
-    
-    const processingMsg = await api.sendMessage("⏳ Downloading...", threadID);
-    return processDownload(urlMatch[0], api, event, processingMsg.messageID);
-  }
+  const urlMatch = body.match(/https?:\/\/[^\s]+/);
+  if (!urlMatch) return;
+  const url = urlMatch[0];
 
-  // Auto-download handling
-  if (autoDownloadStatus[threadID]) {
-    const urlMatch = body.match(/https?:\/\/[^\s]+/);
-    if (urlMatch && detectPlatform(urlMatch[0])) {
-      const processingMsg = await api.sendMessage("🔄 Auto-detected media link, downloading...", threadID);
-      return processDownload(urlMatch[0], api, event, processingMsg.messageID);
-    }
+  const platformMatch = detectPlatform(url);
+  if (!platformMatch) return;// Ignore unsupported URLs
+  try {
+    const apiUrl = await dApi();
+    api.setMessageReaction("✔️", event.messageID, (err) => {}, true);
+    const { downloadUrl, platform } = await downloadVideo(apiUrl, url);
+
+    const videoStream = await axios.get(downloadUrl, { responseType: "stream" });
+    api.sendMessage(
+      {
+        body: `✅ Downloaded From ${platform}\`,
+        attachment: [videoStream.data],
+      },
+      threadID,
+      messageID
+    );
+  } catch (error) {
+    console.error(`❌ Error while processing the URL:`, error.message);
   }
 };
