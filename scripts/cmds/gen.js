@@ -18,13 +18,11 @@ module.exports = {
     countDown: 5,
     role: 0,
     longDescription: {
-      vi: "",
-      en: "Get images from text.",
+      en: "Generate images from text prompts using AI models",
     },
     category: "Image~Create",
     guide: {
-      vi: "",
-      en: "Type {pn} with your prompts | (model name)\nHere are the Supported models:\n" + models.map((item, index) => `${index + 1}. ${item}`).join('\n'),
+      en: "Type {pn} [prompt] | [model number/name]\nSupported models:\n" + models.map((item, index) => `${index + 1}. ${item}`).join('\n'),
     },
   },
 
@@ -32,7 +30,7 @@ module.exports = {
     try {
       const text = args.join(" ");
       if (!text) {
-        return message.reply("Please provide a prompt.");
+        return message.reply("⚠️ Please provide a text prompt.");
       }
 
       let prompt, model;
@@ -41,42 +39,35 @@ module.exports = {
         prompt = promptText;
         model = modelText;
 
+        // Handle model selection by number
         const modelNumber = parseInt(model);
-        if (modelNumber >= 1 && modelNumber <= 9) {
-          const modelNames = [
-            'DreamShaper',
-            'MBBXL_Ultimate',
-            'Mysterious',
-            'Copax_TimeLessXL',
-            'Pixel_Art_XL',
-            'ProtoVision_XL',
-            'SDXL_Niji',
-            'CounterfeitXL',
-            'DucHaiten_AIart_SDXL'
-          ];
-          model = modelNames[modelNumber - 1];
-        } else {
-          return message.reply("Invalid model number. Supported models are:\n" + models.map((item, index) => `${index + 1}. ${item}`).join('\n'));
+        if (!isNaN(modelNumber) && modelNumber >= 1 && modelNumber <= models.length) {
+          model = models[modelNumber - 1];
+        } else if (!models.includes(model)) {
+          return message.reply(`❌ Invalid model. Supported models:\n${models.map((m, i) => `${i + 1}. ${m}`).join('\n')}`);
         }
       } else {
         prompt = text;
-        model = "DreamShaper";
+        model = "DreamShaper"; // Default model
       }
 
-      let id;
       api.setMessageReaction("⏳", event.messageID, () => {}, true);
-      const waitingMessage = await message.reply("✅ | Creating your Imagination...");
+      const processingMsg = await message.reply("🔄 Generating your image...");
 
-      const API = `https://www.api.vyturex.com/curios?prompt=${encodeURIComponent(prompt)}&modelType=${model}`;
-      const imageStream = await global.utils.getStreamFromURL(API);
+      const APIUrl = `https://www.api.vyturex.com/curios?prompt=${encodeURIComponent(prompt)}&modelType=${model}`;
+      const imageStream = await global.utils.getStreamFromURL(APIUrl);
 
       await message.reply({
         attachment: imageStream,
+        body: `🖼️ Generated using ${model} model`
       });
+      
       api.setMessageReaction("✅", event.messageID, () => {}, true);
-      await api.unsendMessage(waitingMessage.messageID);
+      await api.unsendMessage(processingMsg.messageID);
+
     } catch (error) {
-      message.reply("Your prompt is blocked. Try again later with another prompt. [ Tor Mayre Chudi REDWAN/ MAHI  Othoba Sanam Er Permission Nicos? ]");
+      console.error(error);
+      message.reply("❌ An error occurred. Please try again with a different prompt.");
     }
-  },
+  }
 };
