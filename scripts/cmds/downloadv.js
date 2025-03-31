@@ -97,7 +97,7 @@ module.exports.onChat = async ({ api, event }) => {
     const videoStream = await axios.get(downloadUrl, { responseType: "stream" });
     api.sendMessage(
       {
-        body: `✅ Downloaded From ${platform}\`,
+        body: `✅ Downloaded From ${platform}`,
         attachment: [videoStream.data],
       },
       threadID,
