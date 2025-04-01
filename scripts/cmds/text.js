@@ -2,9 +2,13 @@ const axios = require("axios");
 const fs = require("fs-extra");
 const ffmpeg = require("fluent-ffmpeg");
 const path = require("path");
+const { franc } = require('franc');
+const langs = require('langs');
+const FormData = require('form-data');
+require('dotenv').config();
 
 // You'll need to install these packages:
-// npm install axios fs-extra fluent-ffmpeg @ffmpeg-installer/ffmpeg node-fetch speech-to-text
+// npm install axios fs-extra fluent-ffmpeg @ffmpeg-installer/ffmpeg franc langs form-data dotenv
 
 let ffmpegPath;
 try {
@@ -94,12 +98,14 @@ module.exports = {
       fs.writeFileSync(inputPath, Buffer.from(data, 'utf-8'));
       
       // If it's a video, extract the audio
+      // Modify ffmpeg to avoid using process.stderr.clearLine
       if (attachment.type === "video") {
         await new Promise((resolve, reject) => {
           ffmpeg(inputPath)
             .output(audioPath)
             .on('end', resolve)
             .on('error', reject)
+            .outputOptions(['-hide_banner', '-loglevel error']) // Reduce logging
             .run();
         });
       } else {
@@ -110,38 +116,72 @@ module.exports = {
       // Read the audio file
       const audioBuffer = fs.readFileSync(audioPath);
       
-      // Call the speech-to-text API
+      // Call the speech-to-text API using OpenAI's Whisper API
       try {
-        // You'll need to replace this with your preferred STT API
-        // Here's an example using a hypothetical API
-        const fetch = require('node-fetch');
-        
-        // Create a FormData object with the audio file
-        const FormData = require('form-data');
         const formData = new FormData();
+        
+        // Add the audio file to the form data
         formData.append('file', audioBuffer, {
           filename: 'audio.mp3',
           contentType: 'audio/mpeg'
         });
+        formData.append('model', 'whisper-1');
+        formData.append('response_format', 'json');
         
-        // Send to speech-to-text API
-        // Replace with your actual API endpoint
-        const response = await fetch('https://api.speech-to-text-service.com/transcribe', {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Authorization': 'Bearer YOUR_API_KEY' // Replace with your API key
+        // Get the API key - first check environment variable, then config file
+        let OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+        
+        // If no API key in environment, check if there's a config file
+        if (!OPENAI_API_KEY) {
+          try {
+            const configPath = path.join(__dirname, '..', 'config.json');
+            if (fs.existsSync(configPath)) {
+              const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+              OPENAI_API_KEY = configData.OPENAI_API_KEY;
+            }
+          } catch (configErr) {
+            console.error("Error reading config file:", configErr);
           }
-        });
+        }
         
-        const result = await response.json();
+        if (!OPENAI_API_KEY) {
+          throw new Error("OpenAI API key not found. Please set OPENAI_API_KEY in your .env file or config.json");
+        }
+        
+        // Send to OpenAI Whisper API
+        const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', 
+          formData, 
+          {
+            headers: {
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              ...formData.getHeaders()
+            },
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity
+          }
+        );
+        
+        const result = response.data;
         
         if (!result.text) {
           throw new Error("Could not extract text from the media file.");
         }
         
-        // Detect language (the API might already return this)
-        const detectedLanguage = result.language || "Unknown";
+        // We'll use franc to detect the language from the text
+        // Detect language using franc
+        const langCode = franc(result.text);
+        let detectedLanguage = "Auto-detected";
+        
+        if (langCode !== 'und') {
+          try {
+            const language = langs.where('3', langCode);
+            if (language) {
+              detectedLanguage = language.name;
+            }
+          } catch (langError) {
+            console.log("Language detection error:", langError);
+          }
+        }
         
         // Send the transcribed text to the user
         const messageText = `📝 Extracted Text (${detectedLanguage}):\n\n${result.text}`;
@@ -150,7 +190,21 @@ module.exports = {
         api.setMessageReaction("✅", event.messageID, (err) => {}, true);
       } catch (apiError) {
         console.error("API Error:", apiError);
-        message.reply("❌ Error: Could not convert speech to text. Please try again later.");
+        let errorMessage = "❌ Error: Could not convert speech to text.";
+        
+        // Provide more specific error messages for common issues
+        if (apiError.response) {
+          const status = apiError.response.status;
+          if (status === 401) {
+            errorMessage = "❌ Error: Invalid API key. Please check your OpenAI API key.";
+          } else if (status === 429) {
+            errorMessage = "❌ Error: API rate limit exceeded. Please try again later.";
+          } else if (apiError.response.data && apiError.response.data.error) {
+            errorMessage = `❌ Error: ${apiError.response.data.error.message}`;
+          }
+        }
+        
+        message.reply(errorMessage);
         api.setMessageReaction("❌", event.messageID, (err) => {}, true);
       }
       
