@@ -9,17 +9,54 @@ const dApi = async () => {
 
 module.exports.config = {
   name: "download",
-  version: "1.6.9",
-  author: "Nazrul",
+  version: "2.0",
+  author: "Nazrul",//modified by nur
   role: 0,
   description: "Automatically download videos from supported platforms!",
   category: "𝗠𝗘𝗗𝗜𝗔",
   countDown: 10,
   guide: {
-    en: "Send a valid video link from supported platforms (TikTok, Facebook, YouTube, Twitter, Instagram, etc.), and the bot will download it automatically.",
+    en: "Send a valid video link from supported platforms (TikTok, Facebook, YouTube, Twitter, Instagram, etc.), and the bot will download it automatically.\n/d {link} - Download video\n/aon - Turn auto download mode on\n/aoff - Turn auto download mode off",
   },
 };
-module.exports.onStart = ({}) => {};
+
+const autoDownloadEnabled = new Map();
+
+module.exports.onStart = async ({ message, args, event, api }) => {
+  const { threadID, messageID } = event;
+  
+  if (args[0] === "/aon" || args[0] === "aon") {
+    autoDownloadEnabled.set(threadID, true);
+    return api.sendMessage("✅ Auto download mode turned ON", threadID, messageID);
+  }
+  
+  if (args[0] === "/aoff" || args[0] === "aoff") {
+    autoDownloadEnabled.delete(threadID);
+    return api.sendMessage("❌ Auto download mode turned OFF", threadID, messageID);
+  }
+  
+  let url = args[0];
+  if (!url && event.type === "message_reply" && event.messageReply.body) {
+    const urlMatch = event.messageReply.body.match(/https?:\/\/[^\s]+/);
+    if (urlMatch) url = urlMatch[0];
+  }
+  
+  if (!url) {
+    return api.sendMessage("❓ Please provide a valid URL to download", threadID, messageID);
+  }
+  
+  const platformMatch = detectPlatform(url);
+  if (!platformMatch) {
+    return api.sendMessage("❌ Unsupported platform. Please use a link from TikTok, Facebook, YouTube, Twitter, or Instagram.", threadID, messageID);
+  }
+  
+  try {
+    await downloadAndSend(url, api, threadID, messageID);
+  } catch (error) {
+    console.error(`❌ Error while processing the URL:`, error.message);
+    api.sendMessage(`❌ Failed to download: ${error.message}`, threadID, messageID);
+  }
+};
 
 const platforms = {
   TikTok: {
@@ -78,20 +115,10 @@ const downloadVideo = async (apiUrl, url) => {
   throw new Error("No video URL found in the API response.");
 };
 
-module.exports.onChat = async ({ api, event }) => {
-  const { body, threadID, messageID } = event;
-
-  if (!body) return;
-
-  const urlMatch = body.match(/https?:\/\/[^\s]+/);
-  if (!urlMatch) return;
-  const url = urlMatch[0];
-
-  const platformMatch = detectPlatform(url);
-  if (!platformMatch) return;// Ignore unsupported URLs
+const downloadAndSend = async (url, api, threadID, messageID) => {
   try {
     const apiUrl = await dApi();
-    api.setMessageReaction("✔️", event.messageID, (err) => {}, true);
+    api.setMessageReaction("✔️", messageID, (err) => {}, true);
     const { downloadUrl, platform } = await downloadVideo(apiUrl, url);
 
     const videoStream = await axios.get(downloadUrl, { responseType: "stream" });
@@ -105,5 +132,76 @@ module.exports.onChat = async ({ api, event }) => {
     );
   } catch (error) {
     console.error(`❌ Error while processing the URL:`, error.message);
+    throw error;
+  }
+};
+
+module.exports.onChat = async ({ api, event }) => {
+  const { body, threadID, messageID } = event;
+
+  if (body === "/aon") {
+    autoDownloadEnabled.set(threadID, true);
+    return api.sendMessage("✅ Auto download mode turned ON", threadID, messageID);
+  }
+  
+  if (body === "/aoff") {
+    autoDownloadEnabled.delete(threadID);
+    return api.sendMessage("❌ Auto download mode turned OFF", threadID, messageID);
+  }
+  
+  if (body.startsWith("/d ")) {
+    const url = body.substring(3).trim();
+    const platformMatch = detectPlatform(url);
+    
+    if (!platformMatch) {
+      return api.sendMessage("❌ Unsupported platform. Please use a link from TikTok, Facebook, YouTube, Twitter, or Instagram.", threadID, messageID);
+    }
+    
+    try {
+      await downloadAndSend(url, api, threadID, messageID);
+    } catch (error) {
+      api.sendMessage(`❌ Failed to download: ${error.message}`, threadID, messageID);
+    }
+    
+    return;
+  }
+  
+  if (body === "/d" && event.type === "message_reply" && event.messageReply.body) {
+    const urlMatch = event.messageReply.body.match(/https?:\/\/[^\s]+/);
+    if (!urlMatch) {
+      return api.sendMessage("❌ No valid URL found in the replied message.", threadID, messageID);
+    }
+    
+    const url = urlMatch[0];
+    const platformMatch = detectPlatform(url);
+    
+    if (!platformMatch) {
+      return api.sendMessage("❌ Unsupported platform. Please use a link from TikTok, Facebook, YouTube, Twitter, or Instagram.", threadID, messageID);
+    }
+    
+    try {
+      await downloadAndSend(url, api, threadID, messageID);
+    } catch (error) {
+      api.sendMessage(`❌ Failed to download: ${error.message}`, threadID, messageID);
+    }
+    
+    return;
+  }
+
+  if (!autoDownloadEnabled.get(threadID)) return;
+  
+  if (!body) return;
+
+  const urlMatch = body.match(/https?:\/\/[^\s]+/);
+  if (!urlMatch) return;
+  const url = urlMatch[0];
+
+  const platformMatch = detectPlatform(url);
+  if (!platformMatch) return;
+  
+  try {
+    await downloadAndSend(url, api, threadID, messageID);
+  } catch (error) {
+    console.error(`❌ Error while processing the URL in auto mode:`, error.message);
   }
 };
