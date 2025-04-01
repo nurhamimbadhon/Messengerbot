@@ -9,7 +9,7 @@ module.exports = {
     countDown: 1,
     role: 0,
     category: "owner",
-    guide: "Reply to a message and use the command. Only the owner (ID: 100034630383353) can use or request help for this command."
+    guide: "..."
   },
   onStart: async function({ message, event, api }) {
     // Owner ID - only this person can use the command or see help
