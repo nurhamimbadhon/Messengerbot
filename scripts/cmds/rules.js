@@ -6,7 +6,7 @@ module.exports = {
 		version: "1.6",
 		author: "NTKhang",
 		countDown: 5,
-		role: 1,
+		role: 0,
 		description: {
 			vi: "Tạo/xem/thêm/sửa/đổi vị trí/xóa nội quy nhóm của bạn",
 			en: "Create/view/add/edit/change position/delete group rules of you"
