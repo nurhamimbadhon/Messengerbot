@@ -131,7 +131,13 @@ const downloadAndSend = async (url, api, threadID, messageID) => {
 module.exports.onChat = async ({ api, event }) => {
   const { body, threadID, messageID } = event;
   
-  // Handle the raw commands without prefix (in case bot's prefix detection changed)
+  // Skip processing if the message starts with a slash (/)
+  // This prevents duplicate handling with onStart function
+  if (body.startsWith('/')) {
+    return;
+  }
+  
+  // Handle the raw commands without prefix
   if (body === "aon") {
     autoDownloadEnabled.set(threadID, true);
     return api.sendMessage("✅ Auto download mode turned ON", threadID, messageID);
@@ -141,36 +147,12 @@ module.exports.onChat = async ({ api, event }) => {
     return api.sendMessage("❌ Auto download mode turned OFF", threadID, messageID);
   }
   
-  // Handle the commands with slash prefix
-  if (body === "/aon") {
-    autoDownloadEnabled.set(threadID, true);
-    return api.sendMessage("✅ Auto download mode turned ON", threadID, messageID);
-  }
-  if (body === "/aoff") {
-    autoDownloadEnabled.delete(threadID);
-    return api.sendMessage("❌ Auto download mode turned OFF", threadID, messageID);
-  }
-  
-  // Handle download commands
-  if (body.startsWith("/dn ")) {
-    const url = body.substring(4).trim();
-    return handleDownload(url, api, threadID, messageID);
-  }
-  
-  if (body === "/dn" && event.type === "message_reply" && event.messageReply.body) {
-    const urlMatch = event.messageReply.body.match(/https?:\/\/[^\s]+/);
-    if (!urlMatch) {
-      api.setMessageReaction("❌", messageID, () => {}, true);
-      return api.sendMessage("❌ Invalid URL in the replied message.", threadID, messageID);
-    }
-    const url = urlMatch[0];
-    return handleDownload(url, api, threadID, messageID);
-  }
-  
-  // Auto download mode
+  // Auto download mode - only process if enabled for this thread
   if (!autoDownloadEnabled.get(threadID)) return;
+  
   const urlMatch = body.match(/https?:\/\/[^\s]+/);
   if (!urlMatch) return;
+  
   try {
     await downloadAndSend(urlMatch[0], api, threadID, messageID);
   } catch (error) {
