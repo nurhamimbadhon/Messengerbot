@@ -22,11 +22,11 @@ const autoDownloadEnabled = new Map();
 
 module.exports.onStart = async ({ message, args, event, api }) => {
   const { threadID, messageID } = event;
-  if (args[0] === "-aon" || args[0] === "aon") {
+  if (args[0] === "/aon" || args[0] === "aon") {
     autoDownloadEnabled.set(threadID, true);
     return api.sendMessage("✅ Auto download mode turned ON", threadID, messageID);
   }
-  if (args[0] === "-aoff" || args[0] === "aoff") {
+  if (args[0] === "/aoff" || args[0] === "aoff") {
     autoDownloadEnabled.delete(threadID);
     return api.sendMessage("❌ Auto download mode turned OFF", threadID, messageID);
   }
@@ -40,12 +40,14 @@ module.exports.onStart = async ({ message, args, event, api }) => {
   }
   const platformMatch = detectPlatform(url);
   if (!platformMatch) {
+    api.setMessageReaction("❌", messageID, () => {}, true);
     return api.sendMessage("❌ Unsupported platform. Please use a link from TikTok, Facebook, YouTube, Twitter, or Instagram.", threadID, messageID);
   }
   try {
     await downloadAndSend(url, api, threadID, messageID);
   } catch (error) {
     console.error(`❌ Error while processing the URL:`, error.message);
+    api.setMessageReaction("❌", messageID, () => {}, true);
     api.sendMessage(`❌ Failed to download: ${error.message}`, threadID, messageID);
   }
 };
@@ -92,48 +94,55 @@ const downloadAndSend = async (url, api, threadID, messageID) => {
     const { downloadUrl, platform } = await downloadVideo(apiUrl, url);
     const videoStream = await axios.get(downloadUrl, { responseType: "stream" });
     api.sendMessage({ body: `✅ Downloaded From ${platform}`, attachment: [videoStream.data] }, threadID, messageID);
+    api.setMessageReaction("✅", messageID, () => {}, true);
   } catch (error) {
     console.error(`❌ Error while processing the URL:`, error.message);
+    api.setMessageReaction("❌", messageID, () => {}, true);
     throw error;
   }
 };
 
 module.exports.onChat = async ({ api, event }) => {
   const { body, threadID, messageID } = event;
-  if (body === "-aon") {
+  if (body === "/aon") {
     autoDownloadEnabled.set(threadID, true);
     return api.sendMessage("✅ Auto download mode turned ON", threadID, messageID);
   }
-  if (body === "-aoff") {
+  if (body === "/aoff") {
     autoDownloadEnabled.delete(threadID);
     return api.sendMessage("❌ Auto download mode turned OFF", threadID, messageID);
   }
-  if (body.startsWith("-d ")) {
+  if (body.startsWith("/dn ")) {
     const url = body.substring(3).trim();
     const platformMatch = detectPlatform(url);
     if (!platformMatch) {
+      api.setMessageReaction("❌", messageID, () => {}, true);
       return api.sendMessage("❌ Unsupported platform. Please use a link from TikTok, Facebook, YouTube, Twitter, or Instagram.", threadID, messageID);
     }
     try {
       await downloadAndSend(url, api, threadID, messageID);
     } catch (error) {
+      api.setMessageReaction("❌", messageID, () => {}, true);
       api.sendMessage(`❌ Failed to download: ${error.message}`, threadID, messageID);
     }
     return;
   }
-  if (body === "-d" && event.type === "message_reply" && event.messageReply.body) {
+  if (body === "/dn" && event.type === "message_reply" && event.messageReply.body) {
     const urlMatch = event.messageReply.body.match(/https?:\/\/[^\s]+/);
     if (!urlMatch) {
+      api.setMessageReaction("❌", messageID, () => {}, true);
       return api.sendMessage("❌ No valid URL found in the replied message.", threadID, messageID);
     }
     const url = urlMatch[0];
     const platformMatch = detectPlatform(url);
     if (!platformMatch) {
+      api.setMessageReaction("❌", messageID, () => {}, true);
       return api.sendMessage("❌ Only supported from TikTok, Facebook, YouTube, Twitter, Instagram.", threadID, messageID);
     }
     try {
       await downloadAndSend(url, api, threadID, messageID);
     } catch (error) {
+      api.setMessageReaction("❌", messageID, () => {}, true);
       api.sendMessage(`❌ Failed to download: ${error.message}`, threadID, messageID);
     }
     return;
@@ -145,5 +154,6 @@ module.exports.onChat = async ({ api, event }) => {
     await downloadAndSend(urlMatch[0], api, threadID, messageID);
   } catch (error) {
     console.error(`❌ Error while processing the URL in auto mode:`, error.message);
+    api.setMessageReaction("❌", messageID, () => {}, true);
   }
 };
