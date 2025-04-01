@@ -10,7 +10,7 @@ module.exports = {
  version: "1.0",
  author: "Upen Basnet",
  countDown: 5,
- role: 0,
+ role: 1,
  shortDescription: "face on toilet",
  longDescription: "",
  category: "fun",
