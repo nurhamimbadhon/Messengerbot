@@ -27,7 +27,7 @@ As an AI assistant, you should recognize when a user wants to perform a task tha
 const getGeminiResponse = async (prompt, uid) => {
   try {
     // You'll need to replace this with your actual Gemini API key
-    const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"; 
+    const GEMINI_API_KEY = "AIzaSyDQ1RbZtZtwWBz1GMIRRtR77P2Z5sn1ES4"; 
     const response = await axios.post(
       `https://generativelanguage.googleapis.com/v1/models/gemini-1.0-pro:generateContent?key=${AIzaSyDQ1RbZtZtwWBz1GMIRRtR77P2Z5sn1ES4}`,
       {
