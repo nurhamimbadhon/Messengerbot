@@ -29,7 +29,7 @@ const getGeminiResponse = async (prompt, uid) => {
     // You'll need to replace this with your actual Gemini API key
     const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"; 
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.0-pro:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.0-pro:generateContent?key=${AIzaSyDQ1RbZtZtwWBz1GMIRRtR77P2Z5sn1ES4}`,
       {
         contents: [{
           parts: [{
