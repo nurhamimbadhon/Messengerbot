@@ -13,7 +13,7 @@ module.exports = {
   },
 
   onStart: async function ({ api, event, args }) {
-    if (!args[0]) return api.sendMessage("⚠️ দয়া করে একটি নম্বর দিন!", event.threadID, event.messageID);
+    if (!args[0]) return api.sendMessage("⚠️ 𝗣𝗹𝗲𝗮𝘀𝗲 𝗲𝗻𝘁𝗲𝗿 𝗮 𝗻𝘂𝗺𝗯𝗲𝗿.!", event.threadID, event.messageID);
 
     let number = args[0]?.startsWith("01") ? "88" + args[0] : args[0];
 
