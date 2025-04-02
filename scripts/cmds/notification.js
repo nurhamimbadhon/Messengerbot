@@ -4,7 +4,7 @@ module.exports = {
 	config: {
 		name: "notification",
 		aliases: ["notify", "noti"],
-		version: "1.7",
+		version: "1.8",
 		author: "Nur",
 		countDown: 5,
 		role: 2,
