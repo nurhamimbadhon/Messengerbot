@@ -9,6 +9,10 @@ module.exports = {
     longDescription: "no prefix",
     category: "no prefix",
   },
+  
+  onStart: async function() {
+    
+  },
 
   onChat: async function ({ event, message }) {
     if (event.body && /f[\W_]*[u@]([\W_]*[c@])?[\W_]*k[\W_]*[y@]?[o0]?[u@]?/i.test(event.body)) {
