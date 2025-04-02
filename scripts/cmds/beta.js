@@ -1,246 +1,201 @@
-const axios = require("axios");
-
-// Store Gemini status for each thread
-const geminiStatus = {};
-// Store conversation history for each user
-const conversationHistories = {};
-
-// Helper function to generate initial context
-const getInitialContext = (senderID) => {
-  return `System: You are Vixa, a helpful AI chatbot developed by @nurhamim2617. 
-You can help users with tasks and inform them about available commands in the bot.
-- Have fun with the user and be friendly. If a user jokes around, join the fun!
-- If a user needs to use another command, help guide them to the right command and show how to use it.
-- For commands that require URLs or specific inputs, tell the user how to provide them.
-
-Available commands include:
-- /bby - Talk with the bot or teach it responses
-- /help2 - View all available commands
-- /aon - Download videos (requires a URL)
-- /aof - Turn off video downloading
-- (and others as mentioned in the help command)
-
-As an AI assistant, you should recognize when a user wants to perform a task that requires another command.`;
-};
-
-// Function to communicate with Gemini API
-const getGeminiResponse = async (prompt, uid) => {
-  try {
-    // You'll need to replace this with your actual Gemini API key
-    const GEMINI_API_KEY = "AIzaSyDQ1RbZtZtwWBz1GMIRRtR77P2Z5sn1ES4"; 
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.0-pro:generateContent?key=${AIzaSyDQ1RbZtZtwWBz1GMIRRtR77P2Z5sn1ES4}`,
-      {
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      }
-    );
-    
-    // Extract the response text from Gemini API
-    if (response.data && 
-        response.data.candidates && 
-        response.data.candidates[0] && 
-        response.data.candidates[0].content && 
-        response.data.candidates[0].content.parts && 
-        response.data.candidates[0].content.parts[0]) {
-      return response.data.candidates[0].content.parts[0].text;
-    }
-    
-    return "I couldn't process that request. Please try again.";
-  } catch (error) {
-    console.error("Gemini API error:", error.response?.data || error.message);
-    return "Sorry, I'm having trouble connecting to my brain. Please try again later.";
-  }
-};
-
-// Function to check if message contains command intent
-const detectCommandIntent = (message) => {
-  const downloadKeywords = ["download", "video", "youtube", "tiktok", "facebook", "fb", "clip", "song", "music"];
-  
-  // Check for download intent
-  if (downloadKeywords.some(keyword => message.toLowerCase().includes(keyword))) {
-    return {
-      intent: "download",
-      command: "aon"
-    };
-  }
-  
-  return null;
-};
-
-// Function to handle Gemini conversation
-const handleGeminiMessage = async (api, event, message) => {
-  const { threadID, messageID, senderID } = event;
-  
-  // Initialize conversation history if it doesn't exist
-  if (!conversationHistories[senderID]) {
-    conversationHistories[senderID] = getInitialContext(senderID);
-  }
-  
-  // Add user message to conversation history
-  conversationHistories[senderID] += `\nUser: ${message}\n`;
-  
-  // Check for command intents
-  const commandIntent = detectCommandIntent(message);
-  
-  if (commandIntent) {
-    // If user is trying to download something
-    if (commandIntent.intent === "download") {
-      // Tell user we're activating the download command
-      const response = "I see you want to download a video. I'm activating the download command for you. Please provide the URL of the video you want to download.";
-      
-      // Send the response
-      api.sendMessage(response, threadID, (error, info) => {
-        if (error) return console.error(error);
-        
-        // Activate the download command
-        const aonCommand = global.GoatBot.commands.get("aon");
-        if (aonCommand) {
-          try {
-            aonCommand.onStart({ api, event, args: [], message: event.body });
-          } catch (cmdError) {
-            console.error("Error executing aon command:", cmdError);
-            api.sendMessage("There was an error activating the download feature. Please try using /aon directly.", threadID, messageID);
-          }
-        } else {
-          api.sendMessage("The download command seems to be unavailable. Please try using /aon directly.", threadID, messageID);
-        }
-      }, messageID);
-      
-      return;
-    }
-  }
-  
-  // Generate Gemini response
-  const prompt = conversationHistories[senderID] + "Vixa: ";
-  const aiResponse = await getGeminiResponse(prompt, senderID);
-  
-  // Add bot response to conversation history
-  conversationHistories[senderID] += `Vixa: ${aiResponse}\n`;
-  
-  // Limit conversation history length to avoid token limits
-  if (conversationHistories[senderID].length > 4000) {
-    const lines = conversationHistories[senderID].split('\n');
-    // Keep the system prompt and last 10 exchanges
-    conversationHistories[senderID] = 
-      lines.slice(0, 5).join('\n') + '\n' + 
-      lines.slice(-20).join('\n');
-  }
-  
-  // Split long responses to accommodate message limits
-  const chunkSize = 2000;
-  if (aiResponse.length <= chunkSize) {
-    return api.sendMessage(aiResponse, threadID, messageID);
-  } else {
-    // Split and send in chunks
-    const chunks = [];
-    for (let i = 0; i < aiResponse.length; i += chunkSize) {
-      chunks.push(aiResponse.substring(i, i + chunkSize));
-    }
-    
-    // Send first chunk with reply to original message
-    api.sendMessage(chunks[0], threadID, messageID);
-    
-    // Send remaining chunks as normal messages
-    for (let i = 1; i < chunks.length; i++) {
-      api.sendMessage(chunks[i], threadID);
-    }
-  }
-};
+const { GoogleGenAI } = require("@google/genai");
+const fs = require("fs-extra");
+const path = require("path");
 
 module.exports = {
   config: {
     name: "gmi",
-    version: "1.0.0",
-    author: "Adapted from Nur Hamim Badhon's code",
+    version: "1.0",
+    author: "nurhamim2617",
     countDown: 5,
     role: 0,
     shortDescription: {
-      en: "Toggle Gemini AI assistant"
+      en: "Gemini AI chat bot"
     },
     longDescription: {
-      en: "Toggle Gemini AI assistant to help with chat and other commands"
+      en: "Chat with Gemini AI, a helpful assistant trained by Nur Hamim Badhon"
     },
     category: "AI",
     guide: {
-      en: "{pn} on - Turn on Gemini AI assistant\n{pn} off - Turn off Gemini AI assistant"
+      en: "{pn} [message] - Chat with Gemini AI\n"
+        + "{pn} on - Enable Gemini AI in the group\n"
+        + "{pn} off - Disable Gemini AI in the group"
+    },
+    priority: 1
+  },
+
+  langs: {
+    en: {
+      turnedOn: "⦿ 𝗩𝗶𝘅𝗮 𝗮𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱\n𝗜 𝘄𝗶𝗹𝗹 𝗿𝗲𝘀𝗽𝗼𝗻𝗱 𝘁𝗼 𝗺𝗲𝗻𝘁𝗶𝗼𝗻𝘀 𝗮𝗻𝗱 𝗿𝗲𝗽𝗹𝗶𝗲𝘀 ✧",
+      turnedOff: "⦿ 𝗩𝗶𝘅𝗮 𝗱𝗲𝗮𝗰𝘁𝗶𝘃𝗮𝘁𝗲𝗱\n𝗜 𝘄𝗶𝗹𝗹 𝗻𝗼 𝗹𝗼𝗻𝗴𝗲𝗿 𝗿𝗲𝘀𝗽𝗼𝗻𝗱 𝘁𝗼 𝗺𝗲𝗻𝘁𝗶𝗼𝗻𝘀 ✧",
+      processingRequest: "⦿ 𝗣𝗿𝗼𝗰𝗲𝘀𝘀𝗶𝗻𝗴...",
+      error: "⦿ 𝗦𝗼𝗿𝗿𝘆, 𝗜 𝗲𝗻𝗰𝗼𝘂𝗻𝘁𝗲𝗿𝗲𝗱 𝗮𝗻 𝗲𝗿𝗿𝗼𝗿:\n%1"
+    }
+  },
+
+  onLoad: async function() {
+    // Create necessary directories and files
+    const dirPath = path.join(__dirname, "cache", "gemini");
+    if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
+    
+    const geminiData = path.join(dirPath, "groups.json");
+    if (!fs.existsSync(geminiData)) fs.writeFileSync(geminiData, JSON.stringify({}));
+    
+    const userContextPath = path.join(dirPath, "userContext.json");
+    if (!fs.existsSync(userContextPath)) fs.writeFileSync(userContextPath, JSON.stringify({}));
+  },
+
+  onStart: async function({ api, event, args, message, getLang }) {
+    const { threadID, senderID, messageID } = event;
+    
+    // Load active groups data
+    const geminiPath = path.join(__dirname, "cache", "gemini", "groups.json");
+    const activeGroups = JSON.parse(fs.readFileSync(geminiPath, "utf8"));
+    
+    // Load user context data
+    const userContextPath = path.join(__dirname, "cache", "gemini", "userContext.json");
+    const userContext = JSON.parse(fs.readFileSync(userContextPath, "utf8"));
+    
+    // Check command arguments
+    if (args[0] === "on") {
+      activeGroups[threadID] = true;
+      fs.writeFileSync(geminiPath, JSON.stringify(activeGroups, null, 2));
+      return message.reply(getLang("turnedOn"));
+    }
+    else if (args[0] === "off") {
+      activeGroups[threadID] = false;
+      fs.writeFileSync(geminiPath, JSON.stringify(activeGroups, null, 2));
+      return message.reply(getLang("turnedOff"));
+    }
+    
+    // Initialize or get user info
+    if (!userContext[senderID]) {
+      const userInfo = await api.getUserInfo(senderID);
+      userContext[senderID] = {
+        name: userInfo[senderID]?.name || "User",
+        history: []
+      };
+      fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
+    }
+    
+    // If no arguments, show guide
+    if (args.length === 0) {
+      return message.reply({
+        body: "⦿ 𝗩𝗶𝘅𝗮 𝗔𝗜 𝗖𝗵𝗮𝘁𝗯𝗼𝘁 ⦿\n\n" +
+              "━━━━━━━━━━━━━━━\n" +
+              "✧ To chat: @Vixa [message]\n" +
+              "✧ To enable: /gmi on\n" +
+              "✧ To disable: /gmi off\n" +
+              "━━━━━━━━━━━━━━━\n" +
+              "✧ ঢাকা উইউশূশূ ✧"
+      });
+    }
+    
+    // Process the message
+    try {
+      const prompt = args.join(" ");
+      message.reply(getLang("processingRequest"));
+      
+      // Initialize Gemini AI
+      const genAI = new GoogleGenAI({ apiKey: "AIzaSyCOk8SSs9cTrXZfNPgjEi4-WT2dV0HEL6E" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      
+      // System prompt
+      const systemPrompt = `System: You are Vixa, a helpful AI chatbot developed by @nurhamim2617. 
+        If a user tells you their name, remember it for future responses. 
+        Do not mention that you are a Gemini AI or a product of Google. 
+        In group chats, if asked about your background, say you were trained by Nur Hamim Badhon.
+        You can speak fluent Bangla (both in English font and Bangla font). 
+        When users speak to you in Bangla, respond in the same font they used.
+        Be helpful, friendly, and concise in your responses.
+        Your name is ${userContext[senderID].name}.
+        
+        If users ask about downloading videos or other commands, check if such commands exist and guide them on how to use them.
+        
+        Always format your responses with aesthetic symbols like ⦿, ✧, ━, etc.`;
+      
+      // Add user context and history
+      const chat = model.startChat({
+        history: userContext[senderID].history.slice(-5), // Keep last 5 exchanges for context
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1000,
+        },
+      });
+      
+      // Process request through Gemini
+      const result = await chat.sendMessage(`${systemPrompt}\n\nUser: ${prompt}`);
+      const response = result.response.text();
+      
+      // Update user history
+      userContext[senderID].history.push({ role: "user", parts: [{ text: prompt }] });
+      userContext[senderID].history.push({ role: "model", parts: [{ text: response }] });
+      fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
+      
+      // Check if response mentions other commands
+      const commandPattern = /\/(download|dl|yt|ytmp3|ytmp4|tiktok|fb|insta|ig)/i;
+      if (commandPattern.test(prompt) || response.toLowerCase().includes("download")) {
+        // Look for command in the global.GoatBot.commands
+        const { commands } = global.GoatBot;
+        const downloadCommands = Array.from(commands.entries())
+          .filter(([name, cmd]) => 
+            cmd.config.name.match(/(download|dl|yt|ytmp3|ytmp4|tiktok|fb|insta|ig)/i) ||
+            (cmd.config.shortDescription?.en || "").toLowerCase().includes("download")
+          )
+          .map(([name, cmd]) => ({
+            name,
+            description: cmd.config.shortDescription?.en || "No description"
+          }));
+        
+        if (downloadCommands.length > 0) {
+          let cmdList = "⦿ 𝗔𝘃𝗮𝗶𝗹𝗮𝗯𝗹𝗲 𝗱𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝗰𝗼𝗺𝗺𝗮𝗻𝗱𝘀:\n━━━━━━━━━━━━━━━\n";
+          downloadCommands.forEach(cmd => {
+            cmdList += `✧ /${cmd.name}: ${cmd.description}\n`;
+          });
+          
+          message.reply(response + "\n\n" + cmdList + "━━━━━━━━━━━━━━━\n✧ Use these commands to download your media!");
+        } else {
+          message.reply(response);
+        }
+      } else {
+        message.reply(response);
+      }
+    } catch (error) {
+      console.error(error);
+      message.reply(getLang("error", error.message));
     }
   },
   
-  onStart: async function({ api, event, args, message }) {
-    const { threadID, messageID, senderID } = event;
+  onChat: async function({ api, event, args, message, getLang }) {
+    const { threadID, senderID, messageID, mentions, body } = event;
     
-    // Check for on/off command
-    if (args.length > 0) {
-      const option = args[0].toLowerCase();
-      
-      if (option === "on") {
-        geminiStatus[threadID] = true;
-        return api.sendMessage("✅ Gemini AI is now activated. You can talk to me directly or mention me in group chats.", threadID, messageID);
-      } else if (option === "off") {
-        geminiStatus[threadID] = false;
-        delete conversationHistories[senderID]; // Clear conversation history
-        return api.sendMessage("❌ Gemini AI is now deactivated.", threadID, messageID);
-      } else {
-        return api.sendMessage("⚠️ Invalid option. Use '/gmi on' to activate or '/gmi off' to deactivate Gemini AI.", threadID, messageID);
-      }
-    } else {
-      // Toggle current status
-      geminiStatus[threadID] = !geminiStatus[threadID];
-      if (geminiStatus[threadID]) {
-        return api.sendMessage("✅ Gemini AI is now activated. You can talk to me directly or mention me in group chats.", threadID, messageID);
-      } else {
-        delete conversationHistories[senderID]; // Clear conversation history
-        return api.sendMessage("❌ Gemini AI is now deactivated.", threadID, messageID);
-      }
-    }
-  },
-  
-  onChat: async function({ api, event, message, args, getLang }) {
-    const { threadID, messageID, senderID, body } = event;
+    // Check if message is a reply to the bot
+    const isReplyToBot = event.type === "message_reply" && 
+                         event.messageReply?.senderID === api.getCurrentUserID();
     
-    // Skip if Gemini is not activated for this thread
-    if (!geminiStatus[threadID]) return;
+    // Check if bot is mentioned
+    const isMentioned = Object.keys(mentions).includes(api.getCurrentUserID());
     
-    // Check for bot mention or direct message
-    let processMessage = false;
-    const botUserID = api.getCurrentUserID();
+    // If neither replied to nor mentioned, exit
+    if (!isReplyToBot && !isMentioned) return;
     
-    // In group chats, check if the bot is mentioned or replied to
-    if (event.isGroup) {
-      // Check for mentions
-      if (event.mentions && Object.keys(event.mentions).includes(botUserID)) {
-        processMessage = true;
-      }
-      // Check if it's a reply to the bot's message
-      else if (event.messageReply && event.messageReply.senderID === botUserID) {
-        processMessage = true;
-      }
-    } else {
-      // In direct messages, always process
-      processMessage = true;
+    // Load active groups data
+    const geminiPath = path.join(__dirname, "cache", "gemini", "groups.json");
+    const activeGroups = JSON.parse(fs.readFileSync(geminiPath, "utf8"));
+    
+    // Check if bot is active in this group
+    if (activeGroups[threadID] !== true) return;
+    
+    // Remove bot mention from message
+    let prompt = body;
+    if (isMentioned) {
+      const mentionRegex = new RegExp(`@${mentions[api.getCurrentUserID()]}`, "g");
+      prompt = prompt.replace(mentionRegex, "").trim();
     }
     
-    if (processMessage && body) {
-      // Remove mentions of the bot from the message
-      let messageText = body;
-      if (event.mentions && Object.keys(event.mentions).includes(botUserID)) {
-        const mentionStr = `@${event.mentions[botUserID]}`;
-        messageText = messageText.replace(mentionStr, '').trim();
-      }
-      
-      // Skip processing if the message is empty after removing mentions
-      if (!messageText) return;
-      
-      // Skip if the message is a command (starts with a prefix)
-      const prefix = global.utils.getPrefix(threadID);
-      if (messageText.startsWith(prefix)) return;
-      
-      // Process the message with Gemini
-      return handleGeminiMessage(api, event, messageText);
-    }
+    // Call onStart with the processed message
+    this.onStart({ api, event: {...event, body: prompt}, args: prompt.split(" "), message, getLang });
   }
 };
