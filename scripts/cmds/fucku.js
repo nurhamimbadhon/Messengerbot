@@ -13,11 +13,12 @@ module.exports = {
   onChat: async function ({ event, message }) {
     if (event.body && /f[\W_]*[u@]([\W_]*[c@])?[\W_]*k[\W_]*[y@]?[o0]?[u@]?/i.test(event.body)) {
       try {
-        return message.reply({
+        return await message.reply({
           body: "Fuck you too🖕",
           attachment: await global.utils.getStreamFromURL("https://i.imgur.com/9bNeakd.gif")
         });
       } catch (err) {
+        console.error("Error in fuck you module:", err);
         return message.reply("Fuck you too🖕");
       }
     }
