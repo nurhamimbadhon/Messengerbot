@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require("@google/genai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require("fs-extra");
 const path = require("path");
 
@@ -70,12 +70,21 @@ module.exports = {
     
     // Initialize or get user info
     if (!userContext[senderID]) {
-      const userInfo = await api.getUserInfo(senderID);
-      userContext[senderID] = {
-        name: userInfo[senderID]?.name || "User",
-        history: []
-      };
-      fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
+      try {
+        const userInfo = await api.getUserInfo(senderID);
+        userContext[senderID] = {
+          name: userInfo[senderID]?.name || "User",
+          history: []
+        };
+        fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
+      } catch (error) {
+        console.error("Error getting user info:", error);
+        userContext[senderID] = {
+          name: "User",
+          history: []
+        };
+        fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
+      }
     }
     
     // If no arguments, show guide
@@ -96,27 +105,35 @@ module.exports = {
       const prompt = args.join(" ");
       message.reply(getLang("processingRequest"));
       
-      // Initialize Gemini AI
-      const genAI = new GoogleGenAI({ apiKey: "AIzaSyCOk8SSs9cTrXZfNPgjEi4-WT2dV0HEL6E" });
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      // Initialize Gemini AI with the correct import
+      const genAI = new GoogleGenerativeAI("AIzaSyCOk8SSs9cTrXZfNPgjEi4-WT2dV0HEL6E");
+      
+      // Get the model - Updated to use the correct API method
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       
       // System prompt
-      const systemPrompt = `System: You are Vixa, a helpful AI chatbot developed by @nurhamim2617. 
+      const systemPrompt = `You are Vixa, a helpful AI chatbot developed by @nurhamim2617. 
         If a user tells you their name, remember it for future responses. 
         Do not mention that you are a Gemini AI or a product of Google. 
         In group chats, if asked about your background, say you were trained by Nur Hamim Badhon.
         You can speak fluent Bangla (both in English font and Bangla font). 
         When users speak to you in Bangla, respond in the same font they used.
         Be helpful, friendly, and concise in your responses.
-        Your name is ${userContext[senderID].name}.
+        The user's name is ${userContext[senderID].name}.
         
         If users ask about downloading videos or other commands, check if such commands exist and guide them on how to use them.
         
         Always format your responses with aesthetic symbols like ⦿, ✧, ━, etc.`;
       
-      // Add user context and history
+      // Create chat history in the format expected by Gemini API
+      const history = userContext[senderID].history.slice(-5).map(item => ({
+        role: item.role === "user" ? "user" : "model",
+        parts: [{ text: item.parts[0].text }]
+      }));
+      
+      // Start a chat session
       const chat = model.startChat({
-        history: userContext[senderID].history.slice(-5), // Keep last 5 exchanges for context
+        history,
         generationConfig: {
           temperature: 0.7,
           topK: 40,
@@ -125,38 +142,53 @@ module.exports = {
         },
       });
       
-      // Process request through Gemini
-      const result = await chat.sendMessage(`${systemPrompt}\n\nUser: ${prompt}`);
+      // Send the message and await response
+      const result = await chat.sendMessage([
+        { text: systemPrompt + "\n\nUser: " + prompt }
+      ]);
       const response = result.response.text();
       
       // Update user history
-      userContext[senderID].history.push({ role: "user", parts: [{ text: prompt }] });
-      userContext[senderID].history.push({ role: "model", parts: [{ text: response }] });
+      userContext[senderID].history.push({ 
+        role: "user", 
+        parts: [{ text: prompt }] 
+      });
+      
+      userContext[senderID].history.push({ 
+        role: "model", 
+        parts: [{ text: response }] 
+      });
+      
       fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
       
       // Check if response mentions other commands
       const commandPattern = /\/(download|dl|yt|ytmp3|ytmp4|tiktok|fb|insta|ig)/i;
       if (commandPattern.test(prompt) || response.toLowerCase().includes("download")) {
         // Look for command in the global.GoatBot.commands
-        const { commands } = global.GoatBot;
-        const downloadCommands = Array.from(commands.entries())
-          .filter(([name, cmd]) => 
-            cmd.config.name.match(/(download|dl|yt|ytmp3|ytmp4|tiktok|fb|insta|ig)/i) ||
-            (cmd.config.shortDescription?.en || "").toLowerCase().includes("download")
-          )
-          .map(([name, cmd]) => ({
-            name,
-            description: cmd.config.shortDescription?.en || "No description"
-          }));
-        
-        if (downloadCommands.length > 0) {
-          let cmdList = "⦿ 𝗔𝘃𝗮𝗶𝗹𝗮𝗯𝗹𝗲 𝗱𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝗰𝗼𝗺𝗺𝗮𝗻𝗱𝘀:\n━━━━━━━━━━━━━━━\n";
-          downloadCommands.forEach(cmd => {
-            cmdList += `✧ /${cmd.name}: ${cmd.description}\n`;
-          });
+        try {
+          const { commands } = global.GoatBot;
+          const downloadCommands = Array.from(commands.entries())
+            .filter(([name, cmd]) => 
+              cmd.config.name.match(/(download|dl|yt|ytmp3|ytmp4|tiktok|fb|insta|ig)/i) ||
+              (cmd.config.shortDescription?.en || "").toLowerCase().includes("download")
+            )
+            .map(([name, cmd]) => ({
+              name,
+              description: cmd.config.shortDescription?.en || "No description"
+            }));
           
-          message.reply(response + "\n\n" + cmdList + "━━━━━━━━━━━━━━━\n✧ Use these commands to download your media!");
-        } else {
+          if (downloadCommands.length > 0) {
+            let cmdList = "⦿ 𝗔𝘃𝗮𝗶𝗹𝗮𝗯𝗹𝗲 𝗱𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝗰𝗼𝗺𝗺𝗮𝗻𝗱𝘀:\n━━━━━━━━━━━━━━━\n";
+            downloadCommands.forEach(cmd => {
+              cmdList += `✧ /${cmd.name}: ${cmd.description}\n`;
+            });
+            
+            message.reply(response + "\n\n" + cmdList + "━━━━━━━━━━━━━━━\n✧ Use these commands to download your media!");
+          } else {
+            message.reply(response);
+          }
+        } catch (error) {
+          console.error("Error processing commands:", error);
           message.reply(response);
         }
       } else {
@@ -176,7 +208,7 @@ module.exports = {
                          event.messageReply?.senderID === api.getCurrentUserID();
     
     // Check if bot is mentioned
-    const isMentioned = Object.keys(mentions).includes(api.getCurrentUserID());
+    const isMentioned = Object.keys(mentions || {}).includes(api.getCurrentUserID());
     
     // If neither replied to nor mentioned, exit
     if (!isReplyToBot && !isMentioned) return;
@@ -190,7 +222,7 @@ module.exports = {
     
     // Remove bot mention from message
     let prompt = body;
-    if (isMentioned) {
+    if (isMentioned && mentions && api.getCurrentUserID()) {
       const mentionRegex = new RegExp(`@${mentions[api.getCurrentUserID()]}`, "g");
       prompt = prompt.replace(mentionRegex, "").trim();
     }
