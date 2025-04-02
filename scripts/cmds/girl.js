@@ -5,7 +5,7 @@ module.exports = {
     version: "1.0",
     author: "AceGun",
     countDown: 5,
-    role: 0, // Changed to 0 for all users
+    role: 2, // Changed to 0 for all users
     shortDescription: "Send photos",
     longDescription: "Sends multiple pictures",
     category: "media",
