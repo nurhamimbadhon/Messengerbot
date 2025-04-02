@@ -12,7 +12,7 @@ module.exports = {
 			vi: "Gửi thông báo từ admin đến all box",
 			en: "Send notification from admin to all box"
 		},
-		category: "𝗢𝗪𝗡𝗘𝗥",
+		category: "Owner",
 		guide: {
 			en: "{pn} <tin nhắn>"
 		},
