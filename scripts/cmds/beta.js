@@ -7,7 +7,7 @@ module.exports = {
   config: {
     name: "Vixa",
     version: "1.0",
-    author: "Nur",
+    author: "nur",
     countDown: 5,
     role: 0,
     shortDescription: {
@@ -43,66 +43,95 @@ module.exports = {
     
     const userContextPath = path.join(dirPath, "userContext.json");
     if (!fs.existsSync(userContextPath)) fs.writeFileSync(userContextPath, JSON.stringify({}));
+    
+    console.log("Vixa AI: Files and directories initialized successfully");
   },
 
   onStart: async function({ api, event, args, message, getLang }) {
     const { threadID, senderID, messageID, body } = event;
     
-    // Load active groups data
-    const geminiPath = path.join(__dirname, "cache", "gemini", "groups.json");
-    const activeGroups = JSON.parse(fs.readFileSync(geminiPath, "utf8"));
-    
-    // Load user context data
-    const userContextPath = path.join(__dirname, "cache", "gemini", "userContext.json");
-    const userContext = JSON.parse(fs.readFileSync(userContextPath, "utf8"));
-    
-    // Check command arguments
-    if (args[0] === "on") {
-      activeGroups[threadID] = true;
-      fs.writeFileSync(geminiPath, JSON.stringify(activeGroups, null, 2));
-      return message.reply(getLang("turnedOn"));
-    }
-    else if (args[0] === "off") {
-      activeGroups[threadID] = false;
-      fs.writeFileSync(geminiPath, JSON.stringify(activeGroups, null, 2));
-      return message.reply(getLang("turnedOff"));
-    }
-    
-    // Initialize or get user info
-    if (!userContext[senderID]) {
-      try {
-        const userInfo = await api.getUserInfo(senderID);
-        userContext[senderID] = {
-          name: userInfo[senderID]?.name || "User",
-          knownUser: false, // Flag to track if we've explicitly learned the user's name
-          history: []
-        };
-        fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
-      } catch (error) {
-        console.error("Error getting user info:", error);
-        userContext[senderID] = {
-          name: "User",
-          knownUser: false,
-          history: []
-        };
-        fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
-      }
-    }
-    
-    // If no arguments, show guide
-    if (args.length === 0) {
-      return message.reply({
-        body: "🔹𝗩𝗶𝘅𝗮 𝗔𝗜 \n\n" +
-              "━━━━━━━━━━━━━━━\n" +
-              "💬 To chat: @Vixa [message]`\n" +
-              "✅ Enable: /vixa on\n" +
-              "❌ Disable: /vixa off\n" +
-              "━━━━━━━━━━━━━━━"
-      });
-    }
-    
-    // Process the message
     try {
+      // Load active groups data
+      const geminiPath = path.join(__dirname, "cache", "gemini", "groups.json");
+      let activeGroups = {};
+      
+      // Safely load the active groups data
+      try {
+        if (fs.existsSync(geminiPath)) {
+          const rawData = fs.readFileSync(geminiPath, "utf8");
+          if (rawData) {
+            activeGroups = JSON.parse(rawData);
+          }
+        }
+      } catch (fileError) {
+        console.error("Error reading groups file:", fileError);
+        // Create a new file if there's an error
+        fs.writeFileSync(geminiPath, JSON.stringify({}));
+      }
+      
+      // Load user context data
+      const userContextPath = path.join(__dirname, "cache", "gemini", "userContext.json");
+      let userContext = {};
+      
+      // Safely load the user context data
+      try {
+        if (fs.existsSync(userContextPath)) {
+          const rawData = fs.readFileSync(userContextPath, "utf8");
+          if (rawData) {
+            userContext = JSON.parse(rawData);
+          }
+        }
+      } catch (fileError) {
+        console.error("Error reading user context file:", fileError);
+        fs.writeFileSync(userContextPath, JSON.stringify({}));
+      }
+      
+      // Check command arguments
+      if (args[0] === "on") {
+        activeGroups[threadID] = true;
+        fs.writeFileSync(geminiPath, JSON.stringify(activeGroups, null, 2));
+        return message.reply(getLang("turnedOn"));
+      }
+      else if (args[0] === "off") {
+        activeGroups[threadID] = false;
+        fs.writeFileSync(geminiPath, JSON.stringify(activeGroups, null, 2));
+        return message.reply(getLang("turnedOff"));
+      }
+      
+      // Initialize or get user info
+      if (!userContext[senderID]) {
+        try {
+          const userInfo = await api.getUserInfo(senderID);
+          userContext[senderID] = {
+            name: userInfo[senderID]?.name || "User",
+            knownUser: false,
+            history: []
+          };
+          fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
+        } catch (error) {
+          console.error("Error getting user info:", error);
+          userContext[senderID] = {
+            name: "User",
+            knownUser: false,
+            history: []
+          };
+          fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
+        }
+      }
+      
+      // If no arguments, show guide
+      if (args.length === 0) {
+        return message.reply({
+          body: "🔹𝗩𝗶𝘅𝗮 𝗔𝗜 \n\n" +
+                "━━━━━━━━━━━━━━━\n" +
+                "💬 To chat: @Vixa [message]\n" +
+                "✅ Enable: /vixa on\n" +
+                "❌ Disable: /vixa off\n" +
+                "━━━━━━━━━━━━━━━"
+        });
+      }
+      
+      // Process the message
       const prompt = args.join(" ");
       
       // Check for specific query types
@@ -189,22 +218,26 @@ module.exports = {
         Format your responses with aesthetic symbols like ⦿, ✧, etc.
         Keep your responses under 2000 characters to avoid truncation.
         
-        ${userContext[senderID].knownUser ? `The user's name is ${userContext[senderID].name}.` : "Try to learn the user's name if they introduce themselves or say hello."}`;
+        ${userContext[senderID]?.knownUser ? `The user's name is ${userContext[senderID].name}.` : "Try to learn the user's name if they introduce themselves or say hello."}`;
 
       
       // Build a context from recent history
       let contextPrompt = systemPrompt + "\n\n";
       
       // Add a few recent exchanges as context if available
-      const recentHistory = userContext[senderID].history.slice(-8); // Last 4 exchanges
-      if (recentHistory.length > 0) {
-        for (let i = 0; i < recentHistory.length; i++) {
-          const item = recentHistory[i];
-          if (item.role === "user") {
-            contextPrompt += `User: ${item.content}\n`;
-          } else if (item.role === "model") {
-            // Don't prefix with "Vixa:"
-            contextPrompt += `Response: ${item.content}\n`;
+      if (userContext[senderID]?.history && Array.isArray(userContext[senderID].history)) {
+        const recentHistory = userContext[senderID].history.slice(-8); // Last 4 exchanges
+        if (recentHistory.length > 0) {
+          for (let i = 0; i < recentHistory.length; i++) {
+            const item = recentHistory[i];
+            if (item && typeof item === 'object') {
+              if (item.role === "user") {
+                contextPrompt += `User: ${item.content}\n`;
+              } else if (item.role === "model") {
+                // Don't prefix with "Vixa:"
+                contextPrompt += `Response: ${item.content}\n`;
+              }
+            }
           }
         }
       }
@@ -241,13 +274,38 @@ module.exports = {
         ]
       });
       
-      const response = result.response?.text() || result.text();
+      let response = "";
       
-      // Update user history - Store as simple objects with role and content
-      if (!userContext[senderID].history) {
+      // Safely extract the response text
+      try {
+        if (result && result.response) {
+          response = result.response.text();
+        } else if (result && typeof result.text === 'function') {
+          response = result.text();
+        } else if (result && result.text) {
+          response = result.text;
+        } else {
+          response = "⦿ Sorry, I couldn't generate a response at the moment. Please try again.";
+        }
+      } catch (responseError) {
+        console.error("Error extracting response:", responseError);
+        response = "⦿ Sorry, I encountered an error processing your request. Please try again.";
+      }
+      
+      // Initialize user history if it doesn't exist
+      if (!userContext[senderID]) {
+        userContext[senderID] = {
+          name: "User",
+          knownUser: false,
+          history: []
+        };
+      }
+      
+      if (!Array.isArray(userContext[senderID].history)) {
         userContext[senderID].history = [];
       }
       
+      // Update user history - Store as simple objects with role and content
       userContext[senderID].history.push({ 
         role: "user", 
         content: prompt 
@@ -310,7 +368,12 @@ module.exports = {
         }
       }
       
-      fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
+      // Save the updated context
+      try {
+        fs.writeFileSync(userContextPath, JSON.stringify(userContext, null, 2));
+      } catch (writeError) {
+        console.error("Error writing to user context file:", writeError);
+      }
       
       // Check if response mentions download commands
       const commandPattern = /\/(download|dl|yt|ytmp3|ytmp4|tiktok|fb|insta|ig)/i;
@@ -347,55 +410,75 @@ module.exports = {
         message.reply(response);
       }
     } catch (error) {
-      console.error(error);
+      console.error("Error in onStart:", error);
       message.reply(getLang("error", error.message));
     }
   },
   
   onChat: async function({ api, event, message, getLang }) {
-    const { threadID, senderID, mentions, body, type } = event;
-    
     try {
+      const { threadID, senderID, mentions, body, type, messageReply } = event;
+      
+      // Skip processing messages from the bot itself
+      const botID = api.getCurrentUserID();
+      if (senderID === botID) return;
+      
       // Load active groups data
       const geminiPath = path.join(__dirname, "cache", "gemini", "groups.json");
-      const activeGroups = JSON.parse(fs.readFileSync(geminiPath, "utf8"));
+      let activeGroups = {};
+      
+      try {
+        if (fs.existsSync(geminiPath)) {
+          const rawData = fs.readFileSync(geminiPath, "utf8");
+          if (rawData) {
+            activeGroups = JSON.parse(rawData);
+          }
+        }
+      } catch (fileError) {
+        console.error("Error reading groups file in onChat:", fileError);
+        return;
+      }
       
       // Check if bot is active in this group
       if (activeGroups[threadID] !== true) return;
       
-      // Get current bot ID
-      const botID = api.getCurrentUserID();
-      
       // Check if message is a reply to the bot
-      const isReplyToBot = type === "message_reply" && 
-                         event.messageReply?.senderID === botID;
+      const isReplyToBot = type === "message_reply" && messageReply?.senderID === botID;
       
-      // Check if bot is mentioned
-      const isMentioned = mentions && Object.keys(mentions).includes(botID);
+      // Check if bot is mentioned - more robust detection
+      let isMentioned = false;
+      let mentionText = "";
+      
+      // Look for mentions of the bot
+      if (mentions && Object.keys(mentions).includes(botID)) {
+        isMentioned = true;
+        mentionText = mentions[botID];
+      }
+      
+      // Also check for common name mentions that might not be properly tagged
+      const botNameRegex = /(^|\s)(@?vixa|@?bot)(\s|$)/i;
+      if (botNameRegex.test(body)) {
+        isMentioned = true;
+      }
       
       // If neither replied to nor mentioned, exit
       if (!isReplyToBot && !isMentioned) return;
+      
+      console.log(`Vixa AI activated: isReplyToBot=${isReplyToBot}, isMentioned=${isMentioned}`);
       
       // Extract message content
       let prompt = body;
       
       // Remove bot mention from message
-      if (isMentioned && mentions) {
-        // Get the mention text for the bot
-        const botMention = mentions[botID];
-        if (botMention) {
-          // Create a more robust mention pattern
-          const mentionPatterns = [
-            new RegExp(`@${botMention}`, "g"),
-            new RegExp(`@Vixa`, "gi"),
-            new RegExp(`@bot`, "gi")
-          ];
-          
-          // Try each pattern
-          for (const pattern of mentionPatterns) {
-            prompt = prompt.replace(pattern, "").trim();
-          }
+      if (isMentioned) {
+        // Remove the mention text if available
+        if (mentionText) {
+          prompt = prompt.replace(new RegExp(`@${mentionText}`, "g"), "").trim();
         }
+        
+        // Also try to remove common bot name patterns
+        prompt = prompt.replace(/@?vixa/gi, "").trim();
+        prompt = prompt.replace(/@?bot/gi, "").trim();
       }
       
       // Handle empty prompts after mention removal
@@ -406,11 +489,22 @@ module.exports = {
       // Create args array from prompt
       const args = prompt.split(" ");
       
+      // Log the processed message for debugging
+      console.log(`Processing Vixa command with prompt: "${prompt}"`);
+      
       // Call onStart with the processed message
-      this.onStart({ api, event: {...event, body: prompt}, args, message, getLang });
-    } catch (error) {
+      await this.onStart({ 
+        api, 
+        event: {
+          ...event, 
+          body: `/vixa ${prompt}` // Format as a command
+        }, 
+        args, 
+        message, 
+        getLang 
+      });
+    } catch (error) {  
       console.error("Error in onChat:", error);
-      message.reply(getLang("error", error.message));
     }
   }
 };
