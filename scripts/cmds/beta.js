@@ -7,14 +7,14 @@ module.exports = {
   config: {
     name: "Vixa",
     version: "1.0",
-    author: "nurhamim2617",
+    author: "Nur",
     countDown: 5,
     role: 0,
     shortDescription: {
-      en: "Gemini AI chat bot"
+      en: "Vixa AI chat bot"
     },
     longDescription: {
-      en: "Chat with Gemini AI, a helpful assistant trained by Nur Hamim Badhon"
+      en: "Chat with Vixa AI, a helpful assistant trained by Nur Hamim Badhon"
     },
     category: "AI",
     guide: {
@@ -107,23 +107,6 @@ module.exports = {
       
       // Check for specific query types
       const lowerPrompt = prompt.toLowerCase();
-      
-      // Check for developer/owner info request
-      if (lowerPrompt.includes("developer") || 
-          lowerPrompt.includes("trainer") || 
-          lowerPrompt.includes("owner") || 
-          lowerPrompt.includes("admin") || 
-          lowerPrompt.includes("who created you") || 
-          lowerPrompt.includes("who made you")) {
-        
-        return message.reply({
-          body: "⦿ 𝗠𝘆 𝗖𝗿𝗲𝗮𝘁𝗼𝗿 ⦿\n\n" +
-                "━━━━━━━━━━━━━━━\n" +
-                "✧ Developer: Nur Hamim Badhon\n" +
-                "✧ Contact: https://www.facebook.com/Badhon2k23\n" +
-                "━━━━━━━━━━━━━━━"
-        });
-      }
       
       // Weather query handling
       if (lowerPrompt.includes("weather") || 
@@ -370,74 +353,64 @@ module.exports = {
   },
   
   onChat: async function({ api, event, message, getLang }) {
-    const { threadID, senderID, messageID, mentions, body } = event;
-    
-    // Check if message is a reply to the bot
-    const isReplyToBot = event.type === "message_reply" && 
-                         event.messageReply && 
-                         event.messageReply.senderID === api.getCurrentUserID();
-    
-    // Check if bot is mentioned
-    const isMentioned = mentions && Object.keys(mentions).includes(api.getCurrentUserID());
-    
-    // If neither replied to nor mentioned, exit
-    if (!isReplyToBot && !isMentioned) return;
-    
-    // Load active groups data
-    const geminiPath = path.join(__dirname, "cache", "gemini", "groups.json");
-    let activeGroups = {};
+    const { threadID, senderID, mentions, body, type } = event;
     
     try {
-      // Make sure the file exists and is valid JSON
-      if (fs.existsSync(geminiPath)) {
-        const fileContent = fs.readFileSync(geminiPath, "utf8");
-        if (fileContent.trim()) {
-          activeGroups = JSON.parse(fileContent);
+      // Load active groups data
+      const geminiPath = path.join(__dirname, "cache", "gemini", "groups.json");
+      const activeGroups = JSON.parse(fs.readFileSync(geminiPath, "utf8"));
+      
+      // Check if bot is active in this group
+      if (activeGroups[threadID] !== true) return;
+      
+      // Get current bot ID
+      const botID = api.getCurrentUserID();
+      
+      // Check if message is a reply to the bot
+      const isReplyToBot = type === "message_reply" && 
+                         event.messageReply?.senderID === botID;
+      
+      // Check if bot is mentioned
+      const isMentioned = mentions && Object.keys(mentions).includes(botID);
+      
+      // If neither replied to nor mentioned, exit
+      if (!isReplyToBot && !isMentioned) return;
+      
+      // Extract message content
+      let prompt = body;
+      
+      // Remove bot mention from message
+      if (isMentioned && mentions) {
+        // Get the mention text for the bot
+        const botMention = mentions[botID];
+        if (botMention) {
+          // Create a more robust mention pattern
+          const mentionPatterns = [
+            new RegExp(`@${botMention}`, "g"),
+            new RegExp(`@Vixa`, "gi"),
+            new RegExp(`@bot`, "gi")
+          ];
+          
+          // Try each pattern
+          for (const pattern of mentionPatterns) {
+            prompt = prompt.replace(pattern, "").trim();
+          }
         }
       }
+      
+      // Handle empty prompts after mention removal
+      if (!prompt || prompt.trim() === "") {
+        prompt = "hello";
+      }
+      
+      // Create args array from prompt
+      const args = prompt.split(" ");
+      
+      // Call onStart with the processed message
+      this.onStart({ api, event: {...event, body: prompt}, args, message, getLang });
     } catch (error) {
-      console.error("Error reading groups file:", error);
-      // Create a new file if there's an error
-      fs.writeFileSync(geminiPath, JSON.stringify({}));
+      console.error("Error in onChat:", error);
+      message.reply(getLang("error", error.message));
     }
-    
-    // Check if bot is active in this group (default to active if not specified)
-    if (activeGroups[threadID] === false) return;
-    
-    // Extract message content
-    let prompt = body || "";
-    
-    // Remove bot mention from message
-    if (isMentioned && mentions && api.getCurrentUserID()) {
-      // Get the mention text for the bot
-      const botMention = mentions[api.getCurrentUserID()];
-      if (botMention) {
-        // Create a more robust mention pattern
-        const mentionPatterns = [
-          new RegExp(`@${botMention}`, "g"),
-          new RegExp(`@Vixa`, "gi"),
-          new RegExp(`@bot`, "gi")
-        ];
-        
-        // Try each pattern
-        for (const pattern of mentionPatterns) {
-          prompt = prompt.replace(pattern, "").trim();
-        }
-      }
-    }
-    
-    // Handle empty prompts after mention removal
-    if (!prompt || prompt.trim() === "") {
-      prompt = "hello";
-    }
-    
-    // Call onStart with the processed message
-    this.onStart({ 
-      api, 
-      event: { ...event, body: `/vixa ${prompt}` }, 
-      args: ["vixa", ...prompt.split(" ")].slice(1), 
-      message, 
-      getLang 
-    });
   }
 };
